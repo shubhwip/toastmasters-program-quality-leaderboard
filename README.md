@@ -1,4 +1,4 @@
-# toastmasters-program-quality-leaderboard
+# Toastmasters Program Quality Leaderboard
 # Objective
 
 To inspire leaders at the district, division, area, and club levels to strive for club quality and leadership development. This is achieved by influencing various levels to foster the overall educational growth of club members. Outcomes will be measured regularly, and clubs will be incentivized to make further quality improvements.
