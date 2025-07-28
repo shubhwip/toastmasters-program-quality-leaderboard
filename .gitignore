@@ -1,0 +1,4 @@
+.streamlit/secrets.toml
+data/*.csv
+app_local.py
+__pycache__/
