@@ -22,7 +22,6 @@ with col2:
 def load_and_process():
     file_id = st.secrets["GOOGLE_DRIVE_FILE_ID"]
     gsheet_url = f"https://drive.google.com/uc?export=download&id={file_id}"
-    print(gsheet_url)
     df = pd.read_csv(gsheet_url)
     df = calculate_points(df)
     df = assign_grouping(df)
