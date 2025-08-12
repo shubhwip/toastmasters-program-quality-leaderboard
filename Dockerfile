@@ -18,4 +18,4 @@ COPY . /app
 EXPOSE 8501
 
 # Set the command to run your Streamlit app
-CMD ["streamlit", "run", "app.py"]
+CMD ["streamlit", "run", "Leaderboard.py"]

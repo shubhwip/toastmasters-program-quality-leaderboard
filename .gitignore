@@ -3,3 +3,7 @@ data/*.csv
 app_local.py
 __pycache__/
 *_Local.py
+
+data/GCC_badge_PGM_1000x1000.png
+data/Incentives Plans.xlsx
+data/~$Incentives Plans.xlsx
