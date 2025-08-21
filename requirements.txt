@@ -5,3 +5,4 @@ python-docx
 langchain-groq
 langchain
 faiss-cpu
+langchain-community
