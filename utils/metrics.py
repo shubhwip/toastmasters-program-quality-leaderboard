@@ -1,4 +1,5 @@
 import pandas as pd
+from datetime import date
 
 def calculate_points(df: pd.DataFrame) -> pd.DataFrame:
     # L1
@@ -27,6 +28,36 @@ def calculate_points(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
+def calculate_contest_points(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Returns one row per club with four contest scores as columns.
+    Score = 100 if contest date is entered, else 0.
+    """
+
+    COL_CLUB = "Select Your Club"
+    date_cols = {
+        "Humorous Contest": "Date the Humorous Speech Contest was held",
+        "TableTopics Contest": "Date the Table Topics Contest was held",
+        "Evaluation Contest": "Date the Evaluation Contest was held",
+        "International Contest": "Date the International Speech Contest was held",
+    }
+
+    df[COL_CLUB] = df[COL_CLUB].str.split(' ----').str[0].str.strip()
+    
+    # Start with club column
+    scores = pd.DataFrame()
+    scores["Club Name"] = df[COL_CLUB].unique()
+
+    # For each contest, compute max score (so multiple submissions collapse to one score per club)
+    for contest, col in date_cols.items():
+        scores_contest = (
+            df.groupby(COL_CLUB)[col]
+              .apply(lambda x: 100 if x.notna().any() and (x.astype(str).str.strip() != "").any() else 0)
+              .reset_index(name=contest)
+        )
+        scores = scores.merge(scores_contest, left_on="Club Name", right_on=COL_CLUB).drop(columns=[COL_CLUB])
+
+    return scores
 
 def assign_grouping(df: pd.DataFrame) -> pd.DataFrame:
     # Define group by active members
@@ -62,3 +93,44 @@ def assign_grouping(df: pd.DataFrame) -> pd.DataFrame:
     df['Group Rank'] = df.groupby('Group')['Total Club Points'].rank(method='dense', ascending=False).astype(int)
 
     return df
+
+def mot_scores(df: pd.DataFrame) -> pd.DataFrame:
+    COL_CLUB = "Select Your Club"
+    COL_DATE = "Date the MOT session was conducted"
+
+    df[COL_CLUB] = df[COL_CLUB].str.split(' ----').str[0].str.strip()
+    # convert to datetime (dayfirst since it's dd/mm/yyyy)
+    mot_dates = pd.to_datetime(df[COL_DATE], dayfirst=True, errors="coerce").dt.date
+
+    q1_start, q1_end = date(2025, 7, 1), date(2025, 12, 31)
+    q2_start, q2_end = date(2026, 1, 1), date(2026, 6, 30)
+
+    df_out = pd.DataFrame({
+        "Club Name": df[COL_CLUB],
+        "MOT_Q1": ((mot_dates >= q1_start) & (mot_dates <= q1_end)).astype(int) * 150,
+        "MOT_Q3": ((mot_dates >= q2_start) & (mot_dates <= q2_end)).astype(int) * 150
+    })
+
+    return df_out.groupby("Club Name", as_index=False).max()
+
+def club_success_plan_scores(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Returns Club | Club_Success_Plan
+    - 200 points if 'Club Success Plan Submission Date' has a valid date
+    """
+
+    COL_CLUB = "Select Your Club"
+    COL_DATE = "Club Success Plan Submission Date"
+
+    df[COL_CLUB] = df[COL_CLUB].str.split(' ----').str[0].str.strip()
+
+    # Convert to datetime (handles dd/mm/yyyy nicely)
+    plan_dates = pd.to_datetime(df[COL_DATE], dayfirst=True, errors="coerce")
+
+    df_out = pd.DataFrame({
+        "Club Name": df[COL_CLUB],
+        "Club_Success_Plan": plan_dates.notna().astype(int) * 200
+    })
+
+    # One row per club (200 if any submission)
+    return df_out.groupby("Club Name", as_index=False).max()

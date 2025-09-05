@@ -1,7 +1,5 @@
 import streamlit as st
-import pandas as pd
-from utils.metrics import calculate_points, assign_grouping
-from utils.helpers import extract_update_date
+from utils.helpers import extract_update_date, load_data_club_performance, prepare_pathways_pioneers_data, prepare_leadership_innovators_data, prepare_excellence_champions_data
 import requests
 from io import BytesIO
 
@@ -30,20 +28,6 @@ else:
 st.markdown("<h2 style='text-align: center;'>🏆 Program Quality Leaderboard</h2>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center;'>Tracking club excellence across size and progress tiers.</p>", unsafe_allow_html=True)
 
-# ------------------ DATA LOADING ------------------ #
-@st.cache_data
-def load_and_process(gsheet_url=None):    
-    df = pd.read_csv(gsheet_url)
-    df = calculate_points(df)
-    df = assign_grouping(df)
-    return df
-
-club_performance_id = st.secrets["GOOGLE_DRIVE_FILE_ID_CLUB_PERFORMANCE"]
-gsheet_url = f"https://drive.google.com/uc?export=download&id={club_performance_id}"
-
-df = load_and_process(gsheet_url)
-df = df[df['Group'] != 'Unknown']  # Remove Unknown
-
 
 # ------------------ GROUP METADATA ------------------ #
 group_meta = {
@@ -68,26 +52,39 @@ st.markdown(f"### {group_name}")
 st.caption(f"_{group_desc}_")
 
 # ------------------ PREPARE CLUB DATA ------------------ #
-filtered = df[df['Group'] == selected_group_key].copy()
 
-# Add tier points
-filtered['Pathways Pioneers'] = (
-    filtered[['L1 Points', 'L2 Points', 'L3 Points', 'L4 Points', 'L5 Points',
-              'COT R1 Points', 'COT R2 Points']].sum(axis=1)
-)
-filtered['Leadership Innovators'] = 0
-filtered['Excellence Champions'] = 0
+df_club_performance, update_date = load_data_club_performance()
 
-# Sort by Group Rank and Club Name
-filtered = filtered.sort_values(by=['Group Rank', 'Club Name'], ascending=[True, True]).reset_index(drop=True)
-filtered['Top 3'] = filtered['Group Rank'] <= 3
+df_pathways_pioneers = prepare_pathways_pioneers_data(df_club_performance)
+df_leadership_innovators = prepare_leadership_innovators_data(df_club_performance)
+df_excellence_champions = prepare_excellence_champions_data(df_club_performance)
+
+df_filtered = df_pathways_pioneers[df_pathways_pioneers['Club Group'] == group_name].copy()
+
+df_filtered = df_filtered.merge(
+    df_leadership_innovators[['Club Name', 'Leadership Innovators']])
+df_filtered = df_filtered.merge(
+    df_excellence_champions[['Club Name', 'Excellence Champions']])
+
+df_filtered['Total Club Points'] = (
+        df_filtered[['Pathways Pioneers', 'Leadership Innovators', 'Excellence Champions']].sum(axis=1)
+    )
+
+# Sort by Total Points and Club Name
+df_filtered = df_filtered.sort_values(by=['Total Club Points', 'Club Name'], ascending=[False, True]).reset_index(drop=True)
+
+# Add rank and mark top 3
+df_filtered['Group Rank'] = df_filtered.index + 1
+df_filtered['Top 3'] = df_filtered['Group Rank'] <= 3
+# Convert numeric columns to integers
+numeric_cols = ['Total Club Points', 'Group Rank', 'Pathways Pioneers', 'Leadership Innovators', 'Excellence Champions']
+df_filtered[numeric_cols] = df_filtered[numeric_cols].astype(int)
 
 # ------------------ DISPLAY LEADERBOARD ------------------ #
 st.markdown("### 🥇 Leaderboard")
 st.caption("Top 3 clubs in each group (based on Group Rank) will receive special incentives 🎁")
 
 # Extract date from filename
-update_date = extract_update_date(gsheet_url)
 st.caption(f"📅 Last Updated: {update_date}")
 
 display_cols = [
@@ -100,12 +97,12 @@ numeric_cols = [
     'Pathways Pioneers', 'Leadership Innovators', 'Excellence Champions'
 ]
 
-filtered[numeric_cols] = filtered[numeric_cols].round(0).astype("Int64")
-df_to_display = filtered[display_cols].drop(columns='Top 3')
+# filtered[numeric_cols] = filtered[numeric_cols].round(0).astype("Int64")
+df_to_display = df_filtered[display_cols].drop(columns='Top 3')
 
 # Highlight Top 3
 def highlight_top3(row):
-    return ['background-color: #fff9c4' if filtered.loc[row.name, 'Top 3'] else '' for _ in row]
+    return ['background-color: #fff9c4' if df_filtered.loc[row.name, 'Top 3'] else '' for _ in row]
 
 styled_df = df_to_display.style.apply(highlight_top3, axis=1)
 st.dataframe(styled_df, use_container_width=True, hide_index=True)
