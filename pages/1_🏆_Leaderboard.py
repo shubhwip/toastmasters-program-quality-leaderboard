@@ -20,10 +20,10 @@ st.markdown(
 logo_id = st.secrets["GOOGLE_DRIVE_FILE_ID_LOGO"]
 logo_path = f"https://drive.google.com/uc?export=download&id={logo_id}"
 response = requests.get(logo_path)
-if response.status_code == 200:
-    st.image(BytesIO(response.content), width=1000)
-else:
-    st.warning("⚠️ Logo could not be loaded.")
+# if response.status_code == 200:
+#     st.image(BytesIO(response.content), width=1000)
+# else:
+#     st.warning("⚠️ Logo could not be loaded.")
 
 st.markdown("<h2 style='text-align: center;'>🏆 Program Quality Leaderboard</h2>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center;'>Tracking club excellence across size and progress tiers.</p>", unsafe_allow_html=True)

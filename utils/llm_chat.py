@@ -22,7 +22,7 @@ retriever = vectorstore.as_retriever()
 
 # Set up Groq LLM using secrets.toml
 llm = ChatGroq(
-    model_name="llama3-8b-8192",
+    model_name="openai/gpt-oss-120b",
     groq_api_key=st.secrets["GROQ_API_KEY"]
 )
 
