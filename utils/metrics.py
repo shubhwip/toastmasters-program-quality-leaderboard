@@ -134,3 +134,102 @@ def club_success_plan_scores(df: pd.DataFrame) -> pd.DataFrame:
 
     # One row per club (200 if any submission)
     return df_out.groupby("Club Name", as_index=False).max()
+
+
+def pathways_completion_scores(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Returns Club | Pathways_Completion_Celebration
+    - 100 points if the club is listed (i.e., participated)
+    """
+
+    COL_CLUB = "Select Your Club"
+
+    df[COL_CLUB] = df[COL_CLUB].str.split(' ----').str[0].str.strip()
+
+    df_out = pd.DataFrame({
+        "Club Name": df[COL_CLUB],
+        "Pathways_Completion_Celebration": 100
+    })
+
+    return df_out.groupby("Club Name", as_index=False).max()
+
+def mentorship_programme_scores(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Returns Club | Mentorship_Programme
+    - 100 points if the club is listed (i.e., participated)
+    """
+
+    COL_CLUB = "Select Your Club"
+
+    df[COL_CLUB] = df[COL_CLUB].str.split(' ----').str[0].str.strip()
+
+    df_out = pd.DataFrame({
+        "Club Name": df[COL_CLUB],
+        "Mentorship_Programme": 100
+    })
+
+    return df_out.groupby("Club Name", as_index=False).max()
+
+def distinguished_club_partners_scores(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Returns Club | Distinguished_Club_Partners
+    - 500 points if the club is listed (i.e., helped another club become distinguished)
+    """
+    COL_CLUB = "Select Your Club"
+
+    df[COL_CLUB] = df[COL_CLUB].str.split(' ----').str[0].str.strip()
+
+    df_out = pd.DataFrame({
+        "Club Name": df[COL_CLUB],
+        "Distinguished_Club_Partners": 500
+    })
+
+    return df_out.groupby("Club Name", as_index=False).max()
+
+def successful_handover_scores(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Returns Club | Successful_Transition_Handover
+    - 200 points if the club is listed (i.e., submitted handover report)
+    """
+    COL_CLUB = "Select Your Club"
+
+    df[COL_CLUB] = df[COL_CLUB].str.split(' ----').str[0].str.strip()
+
+    df_out = pd.DataFrame({
+        "Club Name": df[COL_CLUB],
+        "Successful_Transition_Handover": 200
+    })
+
+    return df_out.groupby("Club Name", as_index=False).max()
+
+def quality_initiatives_scores(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Returns Club | Quality_Initiatives
+    - 150 points if the club submitted a unique quality initiative (e.g., Speakathon, themed meeting)
+    """
+    COL_CLUB = "Select Your Club"
+
+    df[COL_CLUB] = df[COL_CLUB].str.split(' ----').str[0].str.strip()
+
+    df_out = pd.DataFrame({
+        "Club Name": df[COL_CLUB],
+        "Quality_Initiatives": 150
+    })
+
+    return df_out.groupby("Club Name", as_index=False).max()
+
+def member_onboarding_scores(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Returns Club | Member_Onboarding
+    - 100 points if the club reported having a member onboarding program
+    """
+    COL_CLUB = "Select Your Club"
+
+    df[COL_CLUB] = df[COL_CLUB].str.split(' ----').str[0].str.strip()
+
+    df_out = pd.DataFrame({
+        "Club Name": df[COL_CLUB],
+        "Member_Onboarding": 100
+    })
+
+    return df_out.groupby("Club Name", as_index=False).max()

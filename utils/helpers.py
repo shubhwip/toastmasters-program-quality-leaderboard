@@ -3,7 +3,7 @@ import streamlit as st
 import re
 from datetime import datetime
 import requests
-from utils.metrics import calculate_points, assign_grouping, mot_scores, calculate_contest_points, club_success_plan_scores
+from utils.metrics import *
 
 def extract_update_date(file_url):
     """Extract and format the last update date from filename in content-disposition header."""
@@ -32,6 +32,19 @@ def load_data_club_performance(gsheet_url=None):
     df = df[df['Group'] != 'Unknown']
     return df, update_date
 
+def load_csv_from_secret(secret_key: str, columns: list[str]) -> pd.DataFrame:
+    """
+    Loads a CSV from Google Drive using a file ID stored in Streamlit secrets.
+    If loading fails, returns an empty DataFrame with the given columns.
+    """
+    try:
+        file_id = st.secrets[secret_key]
+        gsheet_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+        df = pd.read_csv(gsheet_url)
+    except Exception as e:
+        st.warning(f"Could not load file for {secret_key}: {e}")
+        df = pd.DataFrame(columns=columns)
+    return df
 
 
 def prepare_pathways_pioneers_data(df_club_performance):
@@ -97,21 +110,43 @@ def prepare_leadership_innovators_data(df_club_performance):
     df['Club Group'] = df['Group'].map(group_map)
 
     # Load and process MOT data
-    file_id_mot = st.secrets["GOOGLE_DRIVE_FILE_ID_MOMENTS_OF_TRUTH"]
-    gsheet_url_mot = f"https://drive.google.com/uc?export=download&id={file_id_mot}"
-    df_mot = pd.read_csv(gsheet_url_mot)
+    df_mot = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_MOMENTS_OF_TRUTH", ["Club Name", "MOT_Q1", "MOT_Q3"])
     df_mot_scores = mot_scores(df_mot)
 
     df_leadership_innovators = df.merge(df_mot_scores, left_on="Club Name", right_on="Club Name", how="left")
 
+    # Load and process PCC data
+    df_pcc = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_PATHWAYS_COMPLETION_CELEBRATION", ["Club Name", "Pathways_Completion_Celebration"])
+    df_pcc_scores = pathways_completion_scores(df_pcc)
+    df_leadership_innovators = df_leadership_innovators.merge(df_pcc_scores, left_on="Club Name", right_on="Club Name", how="left")
+
+    # Load and process PCC data
+    df_mp = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_MENTORSHIP_PROGRAM", ["Club Name", "Mentorship_Programme"])
+    df_mp_scores = mentorship_programme_scores(df_mp)
+    df_leadership_innovators = df_leadership_innovators.merge(df_mp_scores, left_on="Club Name", right_on="Club Name", how="left")
+
+    # Load and process dcp data
+    df_dcp = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_DCP", ["Club Name", "Distinguished_Club_Partners"])
+    df_dcp_scores = distinguished_club_partners_scores(df_dcp)
+    df_leadership_innovators = df_leadership_innovators.merge(df_dcp_scores, left_on="Club Name", right_on="Club Name", how="left")
+
+    # Load and process sth data
+    df_sth = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_STH", ["Club Name", "Successful_Transition_Handover"])
+    df_sth_scores = successful_handover_scores(df_sth)
+    df_leadership_innovators = df_leadership_innovators.merge(df_sth_scores, left_on="Club Name", right_on="Club Name", how="left")
+
     # Add tier points
     df_leadership_innovators['Leadership Innovators'] = (
-        df_leadership_innovators[['COT R1 Points', 'COT R2 Points', 'MOT_Q1', 'MOT_Q3']].sum(axis=1)
+        df_leadership_innovators[['COT R1 Points', 'COT R2 Points', 'MOT_Q1', 'MOT_Q3', 
+                                  'Pathways_Completion_Celebration','Mentorship_Programme',
+                                  'Distinguished_Club_Partners', 'Successful_Transition_Handover']].sum(axis=1)
     )
 
     # Select columns and format
     columns = ['Club Name', 'Club Group', 'Active Members', 'Leadership Innovators',
-               'COT R1 Points', 'COT R2 Points', 'MOT_Q1', 'MOT_Q3']
+               'COT R1 Points', 'COT R2 Points', 'MOT_Q1', 'MOT_Q3', 
+                'Pathways_Completion_Celebration','Mentorship_Programme',
+                'Distinguished_Club_Partners', 'Successful_Transition_Handover']
     df_leadership_innovators = df_leadership_innovators.fillna(0)
     # Sort and reset index
     return df_leadership_innovators[columns].sort_values(by='Club Name').reset_index(drop=True)
@@ -136,22 +171,28 @@ def prepare_excellence_champions_data(df_club_performance):
     }
     df['Club Group'] = df['Group'].map(group_map)
 
-    # Load and process Club Success Plan data
-    file_id_csp = st.secrets["GOOGLE_DRIVE_FILE_ID_CLUB_SUCCESS_PLAN"]
-    gsheet_url_csp = f"https://drive.google.com/uc?export=download&id={file_id_csp}"
-    df_csp = pd.read_csv(gsheet_url_csp)
-    df_csp_scores = club_success_plan_scores(df_csp)
+    df_qis = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_QIS", ["Club Name", "Quality_Initiatives"])
 
-    df_excellence_champions = df.merge(df_csp_scores, left_on="Club Name", right_on="Club Name", how="left")
+    df_qis_scores = quality_initiatives_scores(df_qis)
+    df_excellence_champions = df.merge(df_qis_scores, left_on="Club Name", right_on="Club Name", how="left")
+
+    df_mo = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_MEMBER_ONBOARDING", ["Club Name", "Member_Onboarding"])
+
+    df_mo_scores = member_onboarding_scores(df_mo)
+    df_excellence_champions = df_excellence_champions.merge(df_mo_scores, left_on="Club Name", right_on="Club Name", how="left")
+
+    df_excellence_champions["Club_Success_Plan"] = df_excellence_champions["CSP"].apply(
+    lambda x: 200 if str(x).strip().upper() == "Y" else 0
+    )
 
     # Add tier points
     df_excellence_champions['Excellence Champions'] = (
-        df_excellence_champions[['Club_Success_Plan']].sum(axis=1)
+        df_excellence_champions[['Club_Success_Plan', 'Quality_Initiatives', 'Member_Onboarding']].sum(axis=1)
     )
     # Replace NaN values with 0
     df_excellence_champions = df_excellence_champions.fillna(0)
     # Select columns and format
-    columns = ['Club Name', 'Club Group', 'Active Members', 'Excellence Champions', 'Club_Success_Plan']
+    columns = ['Club Name', 'Club Group', 'Active Members', 'Excellence Champions', 'Club_Success_Plan', 'Quality_Initiatives', 'Member_Onboarding']
 
     # Sort and reset index
     return df_excellence_champions[columns].sort_values(by='Club Name').reset_index(drop=True)
