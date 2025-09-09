@@ -31,10 +31,10 @@ st.markdown("<p style='text-align: center;'>Tracking club excellence across size
 
 # ------------------ GROUP METADATA ------------------ #
 group_meta = {
-    'Group 1': {'Name': 'Spark Clubs', 'Description': 'Clubs with fewer than 12 members. Small but full of potential.'},
-    'Group 2': {'Name': 'Rising Stars', 'Description': 'Clubs with 12–20 members. Gaining traction and energy.'},
-    'Group 3': {'Name': 'Powerhouse Clubs', 'Description': 'Clubs with 21–40 members. Thriving on teamwork.'},
-    'Group 4': {'Name': 'Pinnacle Clubs', 'Description': 'Clubs with 41–100 members. Large and vibrant.'}
+    'Group 1': {'Name': 'Spark Clubs', 'Description': 'Clubs with fewer than 16 members. Small but full of potential.'},
+    'Group 2': {'Name': 'Rising Stars', 'Description': 'Clubs with 17–24 members. Gaining traction and energy.'},
+    'Group 3': {'Name': 'Powerhouse Clubs', 'Description': 'Clubs with 25–40 members. Thriving on teamwork.'},
+    'Group 4': {'Name': 'Pinnacle Clubs', 'Description': 'Clubs with greater than 41 members. Large and vibrant.'}
 }
 
 # ------------------ SELECT GROUP ------------------ #

@@ -16,10 +16,10 @@ To ensure fairness and equality in our incentive programs, clubs are segmented i
 
 | Group    | Club Size      | Name             | Description                                       |
 |----------|---------------|------------------|---------------------------------------------------|
-| Group 1  | Fewer than 12 | Spark Clubs      | Small but full of potential, these clubs are just igniting. |
-| Group 2  | 12–20         | Rising Stars     | Gaining traction, these clubs are building energy and cohesion. |
-| Group 3  | 21–40         | Powerhouse Clubs | Well-established, these clubs thrive on teamwork and synergy. |
-| Group 4  | 41–100        | Pinnacle Clubs   | Large, vibrant clubs at the peak of influence and activity. |
+| Group 1  | Fewer than 16 | Spark Clubs      | Small but full of potential, these clubs are just igniting. |
+| Group 2  | 17–24         | Rising Stars     | Gaining traction, these clubs are building energy and cohesion. |
+| Group 3  | 25–40         | Powerhouse Clubs | Well-established, these clubs thrive on teamwork and synergy. |
+| Group 4  | Greater than 41| Pinnacle Clubs   | Large, vibrant clubs at the peak of influence and activity. |
 
 # Three Tiers of Quality Club
 
