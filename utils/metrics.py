@@ -42,13 +42,20 @@ def calculate_contest_points(df: pd.DataFrame) -> pd.DataFrame:
         "International Contest": "Date the International Speech Contest was held",
     }
 
+    # Handle empty input → return empty with expected columns
+    if df.empty:
+        return pd.DataFrame(
+            columns=["Club Name"] + list(date_cols.keys())
+        )
+
+    # Clean club names
     df[COL_CLUB] = df[COL_CLUB].str.split(' ----').str[0].str.strip()
-    
+
     # Start with club column
     scores = pd.DataFrame()
     scores["Club Name"] = df[COL_CLUB].unique()
 
-    # For each contest, compute max score (so multiple submissions collapse to one score per club)
+    # For each contest, compute max score
     for contest, col in date_cols.items():
         scores_contest = (
             df.groupby(COL_CLUB)[col]
@@ -58,6 +65,7 @@ def calculate_contest_points(df: pd.DataFrame) -> pd.DataFrame:
         scores = scores.merge(scores_contest, left_on="Club Name", right_on=COL_CLUB).drop(columns=[COL_CLUB])
 
     return scores
+
 
 def assign_grouping(df: pd.DataFrame) -> pd.DataFrame:
     # Define group by active members
@@ -98,6 +106,10 @@ def mot_scores(df: pd.DataFrame) -> pd.DataFrame:
     COL_CLUB = "Select Your Club"
     COL_DATE = "Date the MOT session was conducted"
 
+    # If input is empty → return empty with expected columns
+    if df.empty:
+        return pd.DataFrame(columns=["Club Name", "MOT_Q1", "MOT_Q3"])
+    
     df[COL_CLUB] = df[COL_CLUB].str.split(' ----').str[0].str.strip()
     # convert to datetime (dayfirst since it's dd/mm/yyyy)
     mot_dates = pd.to_datetime(df[COL_DATE], dayfirst=True, errors="coerce").dt.date
@@ -112,29 +124,6 @@ def mot_scores(df: pd.DataFrame) -> pd.DataFrame:
     })
 
     return df_out.groupby("Club Name", as_index=False).max()
-
-def club_success_plan_scores(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Returns Club | Club_Success_Plan
-    - 200 points if 'Club Success Plan Submission Date' has a valid date
-    """
-
-    COL_CLUB = "Select Your Club"
-    COL_DATE = "Club Success Plan Submission Date"
-
-    df[COL_CLUB] = df[COL_CLUB].str.split(' ----').str[0].str.strip()
-
-    # Convert to datetime (handles dd/mm/yyyy nicely)
-    plan_dates = pd.to_datetime(df[COL_DATE], dayfirst=True, errors="coerce")
-
-    df_out = pd.DataFrame({
-        "Club Name": df[COL_CLUB],
-        "Club_Success_Plan": plan_dates.notna().astype(int) * 200
-    })
-
-    # One row per club (200 if any submission)
-    return df_out.groupby("Club Name", as_index=False).max()
-
 
 def pathways_completion_scores(df: pd.DataFrame) -> pd.DataFrame:
     """

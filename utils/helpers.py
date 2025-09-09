@@ -42,7 +42,7 @@ def load_csv_from_secret(secret_key: str, columns: list[str]) -> pd.DataFrame:
         gsheet_url = f"https://drive.google.com/uc?export=download&id={file_id}"
         df = pd.read_csv(gsheet_url)
     except Exception as e:
-        st.warning(f"Could not load file for {secret_key}: {e}")
+        # st.warning(f"Could not load file for {secret_key}: {e}")
         df = pd.DataFrame(columns=columns)
     return df
 
@@ -67,10 +67,8 @@ def prepare_pathways_pioneers_data(df_club_performance):
     }
     df['Club Group'] = df['Group'].map(group_map)
 
-    file_id_contests = st.secrets["GOOGLE_DRIVE_FILE_ID_CONTESTS"]
-    gsheet_url_contests = f"https://drive.google.com/uc?export=download&id={file_id_contests}"
-    df_contests = pd.read_csv(gsheet_url_contests)
-
+    df_contests = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_CONTESTS", ["Select Your Club", "Humorous Contest", "TableTopics Contest", "Evaluation Contest", "International Contest"])
+    
     contests_points = calculate_contest_points(df_contests)
 
     df_pathways_pioneers = df.merge(contests_points, left_on="Club Name", right_on="Club Name", how="left")
@@ -110,28 +108,28 @@ def prepare_leadership_innovators_data(df_club_performance):
     df['Club Group'] = df['Group'].map(group_map)
 
     # Load and process MOT data
-    df_mot = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_MOMENTS_OF_TRUTH", ["Club Name", "MOT_Q1", "MOT_Q3"])
+    df_mot = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_MOMENTS_OF_TRUTH", ["Select Your Club", "MOT_Q1", "MOT_Q3"])
     df_mot_scores = mot_scores(df_mot)
 
     df_leadership_innovators = df.merge(df_mot_scores, left_on="Club Name", right_on="Club Name", how="left")
 
     # Load and process PCC data
-    df_pcc = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_PATHWAYS_COMPLETION_CELEBRATION", ["Club Name", "Pathways_Completion_Celebration"])
+    df_pcc = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_PATHWAYS_COMPLETION_CELEBRATION", ["Select Your Club", "Pathways_Completion_Celebration"])
     df_pcc_scores = pathways_completion_scores(df_pcc)
     df_leadership_innovators = df_leadership_innovators.merge(df_pcc_scores, left_on="Club Name", right_on="Club Name", how="left")
 
     # Load and process PCC data
-    df_mp = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_MENTORSHIP_PROGRAM", ["Club Name", "Mentorship_Programme"])
+    df_mp = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_MENTORSHIP_PROGRAM", ["Select Your Club", "Mentorship_Programme"])
     df_mp_scores = mentorship_programme_scores(df_mp)
     df_leadership_innovators = df_leadership_innovators.merge(df_mp_scores, left_on="Club Name", right_on="Club Name", how="left")
 
     # Load and process dcp data
-    df_dcp = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_DCP", ["Club Name", "Distinguished_Club_Partners"])
+    df_dcp = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_DCP", ["Select Your Club", "Distinguished_Club_Partners"])
     df_dcp_scores = distinguished_club_partners_scores(df_dcp)
     df_leadership_innovators = df_leadership_innovators.merge(df_dcp_scores, left_on="Club Name", right_on="Club Name", how="left")
 
     # Load and process sth data
-    df_sth = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_STH", ["Club Name", "Successful_Transition_Handover"])
+    df_sth = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_STH", ["Select Your Club", "Successful_Transition_Handover"])
     df_sth_scores = successful_handover_scores(df_sth)
     df_leadership_innovators = df_leadership_innovators.merge(df_sth_scores, left_on="Club Name", right_on="Club Name", how="left")
 
@@ -171,12 +169,12 @@ def prepare_excellence_champions_data(df_club_performance):
     }
     df['Club Group'] = df['Group'].map(group_map)
 
-    df_qis = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_QIS", ["Club Name", "Quality_Initiatives"])
+    df_qis = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_QIS", ["Select Your Club", "Quality_Initiatives"])
 
     df_qis_scores = quality_initiatives_scores(df_qis)
     df_excellence_champions = df.merge(df_qis_scores, left_on="Club Name", right_on="Club Name", how="left")
 
-    df_mo = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_MEMBER_ONBOARDING", ["Club Name", "Member_Onboarding"])
+    df_mo = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_MEMBER_ONBOARDING", ["Select Your Club", "Member_Onboarding"])
 
     df_mo_scores = member_onboarding_scores(df_mo)
     df_excellence_champions = df_excellence_champions.merge(df_mo_scores, left_on="Club Name", right_on="Club Name", how="left")
