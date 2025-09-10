@@ -1,3 +1,4 @@
+.vscode/
 .streamlit/secrets.toml
 data/*.csv
 app_local.py
