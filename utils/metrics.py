@@ -1,37 +1,87 @@
 import pandas as pd
 from datetime import date
 
-def calculate_points(df: pd.DataFrame) -> pd.DataFrame:
+def compute_award_points(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Compute award-based points per club.
+    
+    Rules:
+    - Level 4 (40 points): if ANY of these codes appear: 
+        DL4, EC4, EH4, IP4, LD4, MS4, PI4, PM4, SR4, VC4
+    - Level 5 (50 points): if ANY of these codes appear: 
+        EC5, EH5, IP5, LD5, MS5, PM5, SR5, VC5
+    - DTM (60 points)
+    - TC  (60 points)
+    - FF  (30 points)
+    """
+
+    if df.empty:
+        return pd.DataFrame(columns=[
+            "Club Name", "Level_4_Points", "Level_5_Points",
+            "DTM_Points", "TC_Points", "Early10_Distinguished"
+        ])
+
+    COL_CLUB = "Name"
+    COL_AWARD = "Award"
+
+    # Normalise awards text
+    s = df[COL_AWARD].astype(str).str.upper().str.strip()
+
+    # Define code sets
+    level4_codes = {"DL4","EC4","EH4","IP4","LD4","MS4","PI4","PM4","SR4","VC4"}
+    level5_codes = {"EC5","EH5","IP5","LD5","MS5","PM5","SR5","VC5"}
+
+    # Row-level flags
+    df["has_L4"] = s.isin(level4_codes)
+    df["has_L5"] = s.isin(level5_codes)
+    df["has_DTM"] = s.eq("DTM")
+    df["has_TC"]  = s.eq("TC")
+    df["has_FF"]  = s.eq("FF")
+
+    # Collapse to club level
+    club_flags = (
+        df.groupby(COL_CLUB, dropna=False)[["has_L4","has_L5","has_DTM","has_TC","has_FF"]]
+          .any()
+          .reset_index()
+    )
+
+    # Map flags → points
+    out = pd.DataFrame({
+        "Club Name": club_flags[COL_CLUB],
+        "L4 Points": club_flags["has_L4"].astype(int) * 40,
+        "L5 Points": club_flags["has_L5"].astype(int) * 50,
+        "DTM Points":     club_flags["has_DTM"].astype(int) * 60,
+        "TC Points":      club_flags["has_TC"].astype(int)  * 60,
+        "Early10_Distinguished":      club_flags["has_FF"].astype(int)  * 30,
+    })
+
+    return out
+
+
+def calculate_points(df: pd.DataFrame, df_edu: pd.DataFrame) -> pd.DataFrame:
     # L1
-    df['L1 Points'] = df['Level 1s'].clip(upper=4) * 100
+    df['L1 Points'] = df['Level 1s'].clip(upper=4) * 10
     
     # L2 (base + additional)
-    df['L2 Points'] = (df['Level 2s'] + df['Add. Level 2s']).clip(upper=2) * 200
+    df['L2 Points'] = (df['Level 2s'] + df['Add. Level 2s']).clip(upper=2) * 20
     
     # L3
-    df['L3 Points'] = df['Level 3s'].clip(upper=2) * 300
+    df['L3 Points'] = df['Level 3s'].clip(upper=2) * 30
 
-    # L4 – only once
-    df['L4 Points'] = df['Level 4s, Path Completions, or DTM Awards'].apply(lambda x: 400 if x >= 1 else 0)
-
-    # L5 – only once
-    df['L5 Points'] = df['Add. Level 4s, Path Completions, or DTM award'].apply(lambda x: 500 if x >= 1 else 0)
+    df_edu_points = compute_award_points(df_edu)
 
     # COT Training Rounds
-    df['COT R1 Points'] = df['Off. Trained Round 1'].apply(lambda x: 200 if x >= 7 else 0)
-    df['COT R2 Points'] = df['Off. Trained Round 2'].apply(lambda x: 200 if x >= 7 else 0)
+    df['COT R1 Points'] = df['Off. Trained Round 1'].apply(lambda x: 20 if x >= 7 else 0)
+    df['COT R2 Points'] = df['Off. Trained Round 2'].apply(lambda x: 20 if x >= 7 else 0)
 
-    # Total Points
-    df['Total Club Points'] = df[
-        ['L1 Points', 'L2 Points', 'L3 Points', 'L4 Points', 'L5 Points', 'COT R1 Points', 'COT R2 Points']
-    ].sum(axis=1)
+    df = df.merge(df_edu_points, left_on="Club Name", right_on="Club Name", how="left").fillna(0)
 
     return df
 
 def calculate_contest_points(df: pd.DataFrame) -> pd.DataFrame:
     """
     Returns one row per club with four contest scores as columns.
-    Score = 100 if contest date is entered, else 0.
+    Score = 10 if contest date is entered, else 0.
     """
 
     COL_CLUB = "Select Your Club"
@@ -59,7 +109,7 @@ def calculate_contest_points(df: pd.DataFrame) -> pd.DataFrame:
     for contest, col in date_cols.items():
         scores_contest = (
             df.groupby(COL_CLUB)[col]
-              .apply(lambda x: 100 if x.notna().any() and (x.astype(str).str.strip() != "").any() else 0)
+              .apply(lambda x: 10 if x.notna().any() and (x.astype(str).str.strip() != "").any() else 0)
               .reset_index(name=contest)
         )
         scores = scores.merge(scores_contest, left_on="Club Name", right_on=COL_CLUB).drop(columns=[COL_CLUB])
@@ -93,12 +143,12 @@ def assign_grouping(df: pd.DataFrame) -> pd.DataFrame:
         'Unknown': {'Name': 'Undefined', 'Description': 'Club size not in defined range.'}
     }
 
-    df['Group Name'] = df['Group'].map(lambda g: group_meta[g]['Name'])
+    df['Club Group'] = df['Group'].map(lambda g: group_meta[g]['Name'])
     df['Group Description'] = df['Group'].map(lambda g: group_meta[g]['Description'])
 
     # Rank within group
-    df = df.sort_values(['Group', 'Total Club Points'], ascending=[True, False])
-    df['Group Rank'] = df.groupby('Group')['Total Club Points'].rank(method='dense', ascending=False).astype(int)
+    # df = df.sort_values(['Group', 'Total Club Points'], ascending=[True, False])
+    # df['Group Rank'] = df.groupby('Group')['Total Club Points'].rank(method='dense', ascending=False).astype(int)
 
     return df
 
@@ -119,8 +169,8 @@ def mot_scores(df: pd.DataFrame) -> pd.DataFrame:
 
     df_out = pd.DataFrame({
         "Club Name": df[COL_CLUB],
-        "MOT_Q1": ((mot_dates >= q1_start) & (mot_dates <= q1_end)).astype(int) * 150,
-        "MOT_Q3": ((mot_dates >= q2_start) & (mot_dates <= q2_end)).astype(int) * 150
+        "MOT_Q1": ((mot_dates >= q1_start) & (mot_dates <= q1_end)).astype(int) * 15,
+        "MOT_Q3": ((mot_dates >= q2_start) & (mot_dates <= q2_end)).astype(int) * 15
     })
 
     return df_out.groupby("Club Name", as_index=False).max()
@@ -128,7 +178,7 @@ def mot_scores(df: pd.DataFrame) -> pd.DataFrame:
 def pathways_completion_scores(df: pd.DataFrame) -> pd.DataFrame:
     """
     Returns Club | Pathways_Completion_Celebration
-    - 100 points if the club is listed (i.e., participated)
+    - 10 points if the club is listed (i.e., participated)
     """
 
     COL_CLUB = "Select Your Club"
@@ -137,7 +187,7 @@ def pathways_completion_scores(df: pd.DataFrame) -> pd.DataFrame:
 
     df_out = pd.DataFrame({
         "Club Name": df[COL_CLUB],
-        "Pathways_Completion_Celebration": 100
+        "Pathways_Completion_Celebration": 10
     })
 
     return df_out.groupby("Club Name", as_index=False).max()
@@ -145,7 +195,7 @@ def pathways_completion_scores(df: pd.DataFrame) -> pd.DataFrame:
 def mentorship_programme_scores(df: pd.DataFrame) -> pd.DataFrame:
     """
     Returns Club | Mentorship_Programme
-    - 100 points if the club is listed (i.e., participated)
+    - 10 points if the club is listed (i.e., participated)
     """
 
     COL_CLUB = "Select Your Club"
@@ -154,7 +204,7 @@ def mentorship_programme_scores(df: pd.DataFrame) -> pd.DataFrame:
 
     df_out = pd.DataFrame({
         "Club Name": df[COL_CLUB],
-        "Mentorship_Programme": 100
+        "Mentorship_Programme": 10
     })
 
     return df_out.groupby("Club Name", as_index=False).max()
@@ -162,7 +212,7 @@ def mentorship_programme_scores(df: pd.DataFrame) -> pd.DataFrame:
 def distinguished_club_partners_scores(df: pd.DataFrame) -> pd.DataFrame:
     """
     Returns Club | Distinguished_Club_Partners
-    - 500 points if the club is listed (i.e., helped another club become distinguished)
+    - 50 points if the club is listed (i.e., helped another club become distinguished)
     """
     COL_CLUB = "Select Your Club"
 
@@ -170,7 +220,7 @@ def distinguished_club_partners_scores(df: pd.DataFrame) -> pd.DataFrame:
 
     df_out = pd.DataFrame({
         "Club Name": df[COL_CLUB],
-        "Distinguished_Club_Partners": 500
+        "Distinguished_Club_Partners": 50
     })
 
     return df_out.groupby("Club Name", as_index=False).max()
@@ -178,7 +228,7 @@ def distinguished_club_partners_scores(df: pd.DataFrame) -> pd.DataFrame:
 def successful_handover_scores(df: pd.DataFrame) -> pd.DataFrame:
     """
     Returns Club | Successful_Transition_Handover
-    - 200 points if the club is listed (i.e., submitted handover report)
+    - 20 points if the club is listed (i.e., submitted handover report)
     """
     COL_CLUB = "Select Your Club"
 
@@ -186,7 +236,7 @@ def successful_handover_scores(df: pd.DataFrame) -> pd.DataFrame:
 
     df_out = pd.DataFrame({
         "Club Name": df[COL_CLUB],
-        "Successful_Transition_Handover": 200
+        "Successful_Transition_Handover": 20
     })
 
     return df_out.groupby("Club Name", as_index=False).max()
@@ -194,7 +244,7 @@ def successful_handover_scores(df: pd.DataFrame) -> pd.DataFrame:
 def quality_initiatives_scores(df: pd.DataFrame) -> pd.DataFrame:
     """
     Returns Club | Quality_Initiatives
-    - 150 points if the club submitted a unique quality initiative (e.g., Speakathon, themed meeting)
+    - 15 points if the club submitted a unique quality initiative (e.g., Speakathon, themed meeting)
     """
     COL_CLUB = "Select Your Club"
 
@@ -202,7 +252,7 @@ def quality_initiatives_scores(df: pd.DataFrame) -> pd.DataFrame:
 
     df_out = pd.DataFrame({
         "Club Name": df[COL_CLUB],
-        "Quality_Initiatives": 150
+        "Quality_Initiatives": 15
     })
 
     return df_out.groupby("Club Name", as_index=False).max()
@@ -210,7 +260,7 @@ def quality_initiatives_scores(df: pd.DataFrame) -> pd.DataFrame:
 def member_onboarding_scores(df: pd.DataFrame) -> pd.DataFrame:
     """
     Returns Club | Member_Onboarding
-    - 100 points if the club reported having a member onboarding program
+    - 10 points if the club reported having a member onboarding program
     """
     COL_CLUB = "Select Your Club"
 
@@ -218,7 +268,7 @@ def member_onboarding_scores(df: pd.DataFrame) -> pd.DataFrame:
 
     df_out = pd.DataFrame({
         "Club Name": df[COL_CLUB],
-        "Member_Onboarding": 100
+        "Member_Onboarding": 10
     })
 
     return df_out.groupby("Club Name", as_index=False).max()
