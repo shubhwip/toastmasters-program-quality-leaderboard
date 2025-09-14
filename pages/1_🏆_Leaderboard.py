@@ -114,15 +114,12 @@ st.markdown("""
 #### 🛤️ Pathways Pioneers
 * **Focus Area**: Educational Progress  
 * **Achievements**: Pathways L1–L5, DTM, Path Completion  
-* **Data Source**: TI Dashboard, District Reports
 
 #### 💡 Leadership Innovators
 * **Focus Area**: Officer Training & Club Innovation  
 * **Achievements**: Officer training, new initiatives, timely submissions  
-* **Data Source**: Reports (coming soon)
 
 #### 🏛️ Excellence Champions
 * **Focus Area**: Club Operations & Planning  
 * **Achievements**: Club operations, district events  
-* **Data Source**: Reports (coming soon)
 """)
