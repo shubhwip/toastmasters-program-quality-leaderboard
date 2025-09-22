@@ -116,7 +116,7 @@ def calculate_contest_points(df: pd.DataFrame) -> pd.DataFrame:
 def assign_grouping(df: pd.DataFrame) -> pd.DataFrame:
     # Define group by active members
     def get_group(members):
-        if members <= 16:
+        if 8 <= members <= 16:
             return 'Group 1'
         elif 17 <= members <= 24:
             return 'Group 2'

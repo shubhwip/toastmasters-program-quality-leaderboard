@@ -17,24 +17,22 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-logo_id = st.secrets["GOOGLE_DRIVE_FILE_ID_LOGO"]
-logo_path = f"https://drive.google.com/uc?export=download&id={logo_id}"
-response = requests.get(logo_path)
-# if response.status_code == 200:
-#     st.image(BytesIO(response.content), width=1000)
-# else:
-#     st.warning("⚠️ Logo could not be loaded.")
-
 st.markdown("<h2 style='text-align: center;'>🏆 Program Quality Leaderboard</h2>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center;'>Tracking club excellence across size and progress tiers.</p>", unsafe_allow_html=True)
 
 
 # ------------------ GROUP METADATA ------------------ #
 group_meta = {
-    'Group 1': {'Name': 'Spark Clubs', 'Description': 'Clubs with fewer than 16 members. Small but full of potential.'},
+    'Group 1': {'Name': 'Spark Clubs', 'Description': 'Clubs with 8-16 members. Small but full of potential.'},
     'Group 2': {'Name': 'Rising Stars', 'Description': 'Clubs with 17–24 members. Gaining traction and energy.'},
     'Group 3': {'Name': 'Powerhouse Clubs', 'Description': 'Clubs with 25–40 members. Thriving on teamwork.'},
     'Group 4': {'Name': 'Pinnacle Clubs', 'Description': 'Clubs with greater than 41 members. Large and vibrant.'}
+}
+
+incentives_tiers = {
+    'Pathways Pioneers': {'Name': 'Pathways Pioneers', 'Description': 'Educational Progress.'},
+    'Leadership Innovators': {'Name': 'Leadership Innovators', 'Description': 'Officer Training & Club Innovation.'},
+    'Excellence Champions': {'Name': 'Excellence Champions', 'Description': 'Club Operations & Planning.'},
 }
 
 # ------------------ SELECT GROUP ------------------ #
@@ -50,6 +48,19 @@ group_desc = group_meta[selected_group_key]['Description']
 
 st.markdown(f"### {group_name}")
 st.caption(f"_{group_desc}_")
+
+# ------------------ SELECT GROUP ------------------ #
+selected_incentive_tier_key = st.radio(
+    "📌 Select Incentive Tier",
+    options=list(incentives_tiers.keys()),
+    format_func=lambda g: incentives_tiers[g]['Name'],
+    horizontal=True
+)
+incentives_tier_name = incentives_tiers[selected_incentive_tier_key]['Name']
+incentives_tier_desc = incentives_tiers[selected_incentive_tier_key]['Description']
+
+st.markdown(f"##### Top Clubs in {incentives_tier_name} tier in {group_name}")
+st.caption(f"Tracking {incentives_tier_desc} in this incentive tier leaderboard")
 
 # ------------------ PREPARE CLUB DATA ------------------ #
 
