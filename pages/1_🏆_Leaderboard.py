@@ -82,7 +82,7 @@ df_filtered['Total Club Points'] = (
     )
 
 # Sort by Total Points and Club Name
-df_filtered = df_filtered.sort_values(by=['Total Club Points', 'Club Name'], ascending=[False, True]).reset_index(drop=True)
+df_filtered = df_filtered.sort_values(by=[incentives_tier_name, 'Club Name'], ascending=[False, True]).reset_index(drop=True)
 
 # Add rank and mark top 3
 df_filtered['Group Rank'] = df_filtered.index + 1
