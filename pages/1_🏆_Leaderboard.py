@@ -64,25 +64,30 @@ st.caption(f"Tracking {incentives_tier_desc} in this incentive tier leaderboard"
 
 # ------------------ PREPARE CLUB DATA ------------------ #
 
-df_club_performance, update_date = load_data_club_performance()
 
-df_pathways_pioneers = prepare_pathways_pioneers_data(df_club_performance)
-df_leadership_innovators = prepare_leadership_innovators_data(df_club_performance)
-df_excellence_champions = prepare_excellence_champions_data(df_club_performance)
-
-df_filtered = df_pathways_pioneers[df_pathways_pioneers['Club Group'] == group_name].copy()
-
-df_filtered = df_filtered.merge(
-    df_leadership_innovators[['Club Name', 'Leadership Innovators']])
-df_filtered = df_filtered.merge(
-    df_excellence_champions[['Club Name', 'Excellence Champions']])
-
-df_filtered['Total Club Points'] = (
-        df_filtered[['Pathways Pioneers', 'Leadership Innovators', 'Excellence Champions']].sum(axis=1)
+@st.cache_data
+def get_merged_club_data():
+    df_club_performance, update_date = load_data_club_performance()
+    df_pathways_pioneers = prepare_pathways_pioneers_data(df_club_performance)
+    df_leadership_innovators = prepare_leadership_innovators_data(df_club_performance)
+    df_excellence_champions = prepare_excellence_champions_data(df_club_performance)
+    df_merged = df_pathways_pioneers.merge(
+        df_leadership_innovators[['Club Name', 'Leadership Innovators']], on='Club Name'
+    ).merge(
+        df_excellence_champions[['Club Name', 'Excellence Champions']], on='Club Name'
     )
+    df_merged['Total Club Points'] = (
+        df_merged[['Pathways Pioneers', 'Leadership Innovators', 'Excellence Champions']].sum(axis=1)
+    )
+    return df_merged, update_date
 
-# Sort by Total Points and Club Name
-df_filtered = df_filtered.sort_values(by=[incentives_tier_name, 'Club Name'], ascending=[False, True]).reset_index(drop=True)
+df_merged, update_date = get_merged_club_data()
+df_filtered = df_merged[df_merged['Club Group'] == group_name].copy()
+
+# Sort by selected incentive tier and Club Name
+df_filtered = df_filtered.sort_values(
+    by=[incentives_tier_name, 'Club Name'], ascending=[False, True]
+).reset_index(drop=True)
 
 # Add rank and mark top 3
 df_filtered['Group Rank'] = df_filtered.index + 1
