@@ -103,17 +103,16 @@ st.caption("Top 3 clubs in each group (based on Group Rank) will receive special
 # Extract date from filename
 st.caption(f"📅 Last Updated: {update_date}")
 
+# Dynamically order columns: Club Name, Total Club Points, <selected tier>, <other tiers>
+all_tiers = ['Pathways Pioneers', 'Leadership Innovators', 'Excellence Champions']
+other_tiers = [tier for tier in all_tiers if tier != incentives_tier_name]
 display_cols = [
-    'Club Name', 'Total Club Points', 
-    'Pathways Pioneers', 'Leadership Innovators', 'Excellence Champions', 'Top 3'
+    'Club Name',
+    'Total Club Points',
+    incentives_tier_name,
+    'Top 3'
 ]
 
-numeric_cols = [
-    'Total Club Points', 'Group Rank', 'Active Members',
-    'Pathways Pioneers', 'Leadership Innovators', 'Excellence Champions'
-]
-
-# filtered[numeric_cols] = filtered[numeric_cols].round(0).astype("Int64")
 df_to_display = df_filtered[display_cols].drop(columns='Top 3')
 
 # Highlight Top 3
