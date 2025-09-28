@@ -139,8 +139,8 @@ def assign_grouping(df: pd.DataFrame) -> pd.DataFrame:
         'Unknown': {'Name': 'Undefined', 'Description': 'Club size not in defined range.'}
     }
 
-    df['Club Group'] = df['Group'].map(lambda g: group_meta[g]['Name'])
-    df['Group Description'] = df['Group'].map(lambda g: group_meta[g]['Description'])
+    df['Club Group'] = df['Group'].apply(lambda g: group_meta[g]['Name'] if g != 'Unknown' else None)
+    df['Group Description'] = df['Group'].map(lambda g: group_meta[g]['Description'] if g != 'Unknown' else None)
 
     # Rank within group
     # df = df.sort_values(['Group', 'Total Club Points'], ascending=[True, False])
