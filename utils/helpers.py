@@ -99,6 +99,7 @@ def prepare_pathways_pioneers_data(df_club_performance):
                'Humorous Contest', 'TableTopics Contest', 'Evaluation Contest', 'International Contest']
     
     # Sort and reset index
+    df_pathways_pioneers = df_pathways_pioneers[df_pathways_pioneers['Active Members'] >= 8]
     return df_pathways_pioneers[columns].sort_values(by='Club Name').reset_index(drop=True)
 
 def prepare_leadership_innovators_data(df_club_performance):
@@ -160,6 +161,7 @@ def prepare_leadership_innovators_data(df_club_performance):
                 'Distinguished_Club_Partners', 'Successful_Transition_Handover']
     
     # Sort and reset index
+    df_leadership_innovators = df_leadership_innovators[df_leadership_innovators['Active Members'] >= 8]
     return df_leadership_innovators[columns].sort_values(by='Club Name').reset_index(drop=True)
 
 def prepare_excellence_champions_data(df_club_performance):
@@ -203,4 +205,5 @@ def prepare_excellence_champions_data(df_club_performance):
     columns = ['Club Name', 'Club Group', 'Active Members', 'Excellence Champions', 'Club_Success_Plan', 'FirstTime_Distinguished', 'Early10_Distinguished', 'Quality_Initiatives', '100%_Pathway_Registration', 'Member_Onboarding']
 
     # Sort and reset index
+    df_excellence_champions = df_excellence_champions[df_excellence_champions['Active Members'] >= 8]
     return df_excellence_champions[columns].sort_values(by='Club Name').reset_index(drop=True)

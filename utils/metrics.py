@@ -27,13 +27,9 @@ def compute_award_points(df: pd.DataFrame) -> pd.DataFrame:
     # Normalise awards text
     s = df[COL_AWARD].astype(str).str.upper().str.strip()
 
-    # Define code sets
-    level4_codes = {"DL4","EC4","EH4","IP4","LD4","MS4","PI4","PM4","SR4","VC4"}
-    level5_codes = {"EC5","EH5","IP5","LD5","MS5","PM5","SR5","VC5"}
-
     # Row-level flags
-    df["has_L4"] = s.isin(level4_codes)
-    df["has_L5"] = s.isin(level5_codes)
+    df["has_L4"] = s.str.endswith("4")
+    df["has_L5"] = s.str.endswith("5")
     df["has_DTM"] = s.eq("DTM")
     df["has_TC"]  = s.eq("TC")
     df["has_FF"]  = s.eq("FF")
@@ -50,9 +46,9 @@ def compute_award_points(df: pd.DataFrame) -> pd.DataFrame:
         "Club Name": club_flags[COL_CLUB],
         "L4 Points": club_flags["has_L4"].astype(int) * 40,
         "L5 Points": club_flags["has_L5"].astype(int) * 50,
-        "DTM Points":     club_flags["has_DTM"].astype(int) * 60,
-        "TC Points":      club_flags["has_TC"].astype(int)  * 60,
-        "Early10_Distinguished":      club_flags["has_FF"].astype(int)  * 30,
+        "DTM Points": club_flags["has_DTM"].astype(int) * 60,
+        "TC Points":  club_flags["has_TC"].astype(int) * 60,
+        "Early10_Distinguished": club_flags["has_FF"].astype(int)  * 30,
     })
 
     return out
@@ -60,13 +56,13 @@ def compute_award_points(df: pd.DataFrame) -> pd.DataFrame:
 
 def calculate_points(df: pd.DataFrame, df_edu: pd.DataFrame) -> pd.DataFrame:
     # L1
-    df['L1 Points'] = df['Level 1s'].clip(upper=4) * 10
+    df['L1 Points'] = df['Level 1s'] * 10
     
     # L2 (base + additional)
-    df['L2 Points'] = (df['Level 2s'] + df['Add. Level 2s']).clip(upper=2) * 20
+    df['L2 Points'] = (df['Level 2s'] + df['Add. Level 2s']) * 20
     
     # L3
-    df['L3 Points'] = df['Level 3s'].clip(upper=2) * 30
+    df['L3 Points'] = df['Level 3s'] * 30
 
     df_edu_points = compute_award_points(df_edu)
 
@@ -120,7 +116,7 @@ def calculate_contest_points(df: pd.DataFrame) -> pd.DataFrame:
 def assign_grouping(df: pd.DataFrame) -> pd.DataFrame:
     # Define group by active members
     def get_group(members):
-        if members <= 16:
+        if 8 <= members <= 16:
             return 'Group 1'
         elif 17 <= members <= 24:
             return 'Group 2'
@@ -143,8 +139,8 @@ def assign_grouping(df: pd.DataFrame) -> pd.DataFrame:
         'Unknown': {'Name': 'Undefined', 'Description': 'Club size not in defined range.'}
     }
 
-    df['Club Group'] = df['Group'].map(lambda g: group_meta[g]['Name'])
-    df['Group Description'] = df['Group'].map(lambda g: group_meta[g]['Description'])
+    df['Club Group'] = df['Group'].apply(lambda g: group_meta[g]['Name'] if g != 'Unknown' else None)
+    df['Group Description'] = df['Group'].map(lambda g: group_meta[g]['Description'] if g != 'Unknown' else None)
 
     # Rank within group
     # df = df.sort_values(['Group', 'Total Club Points'], ascending=[True, False])
