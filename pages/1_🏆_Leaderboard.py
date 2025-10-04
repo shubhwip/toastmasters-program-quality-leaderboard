@@ -1,6 +1,6 @@
 import streamlit as st
 from utils.helpers import extract_update_date, load_data_club_performance, prepare_pathways_pioneers_data, prepare_leadership_innovators_data, prepare_excellence_champions_data
-import requests
+import numpy as np
 from io import BytesIO
 
 # ------------------ HEADER ------------------ #
@@ -84,38 +84,56 @@ def get_merged_club_data():
 df_merged, update_date = get_merged_club_data()
 df_filtered = df_merged[df_merged['Club Group'] == group_name].copy()
 
-# Sort by selected incentive tier and Club Name
 df_filtered = df_filtered.sort_values(
-    by=[incentives_tier_name, 'Club Name'], ascending=[False, True]
+    by=[incentives_tier_name, 'Total Club Points', 'Club Name'],
+    ascending=[False, False, True],
+    kind="mergesort"
 ).reset_index(drop=True)
 
-# Add rank and mark top 3
-df_filtered['Group Rank'] = df_filtered.index + 1
-df_filtered['Top 3'] = df_filtered['Group Rank'] <= 3
-# Convert numeric columns to integers
-numeric_cols = ['Total Club Points', 'Group Rank', 'Pathways Pioneers', 'Leadership Innovators', 'Excellence Champions']
-df_filtered[numeric_cols] = df_filtered[numeric_cols].astype(int)
+candidates = df_filtered[incentives_tier_name] > 0
+df_rank = df_filtered.loc[candidates].copy()
 
-# ------------------ DISPLAY LEADERBOARD ------------------ #
-st.markdown("### 🥇 Leaderboard")
-st.caption("Top 3 clubs in each group (based on Group Rank) will receive special incentives 🎁")
+df_rank["Group Rank"] = (
+    df_rank
+    .sort_values(by=[incentives_tier_name, 'Total Club Points', 'Club Name'],
+                 ascending=[False, False, True], kind="mergesort")
+    .rank(method="min", ascending=False, 
+          numeric_only=False, axis=0,
+          na_option='bottom',
+          pct=False)
+    [incentives_tier_name]
+)  
 
-# Extract date from filename
-st.caption(f"📅 Last Updated: {update_date}")
+df_rank["_key"] = list(zip(df_rank[incentives_tier_name], df_rank["Total Club Points"]))
 
-# Dynamically order columns: Club Name, Total Club Points, <selected tier>, <other tiers>
-all_tiers = ['Pathways Pioneers', 'Leadership Innovators', 'Excellence Champions']
-other_tiers = [tier for tier in all_tiers if tier != incentives_tier_name]
-display_cols = [
-    'Club Name',
-    'Total Club Points',
-    incentives_tier_name,
-    'Top 3'
-]
+df_rank = df_rank.sort_values(by=[incentives_tier_name, 'Total Club Points', 'Club Name'],
+                              ascending=[False, False, True], kind="mergesort")
 
+df_rank["Group Rank"] = range(1, len(df_rank) + 1)
+
+if len(df_rank) >= 3:
+    third_score = df_rank.iloc[2][incentives_tier_name]
+    third_points = df_rank.iloc[2]["Total Club Points"]
+    df_rank["Top 3"] = (
+        (df_rank[incentives_tier_name] > third_score) |
+        ((df_rank[incentives_tier_name] == third_score) &
+         (df_rank["Total Club Points"] >= third_points))
+    )
+else:
+    df_rank["Top 3"] = True
+
+df_filtered = df_filtered.merge(
+    df_rank[["Club Name", "Top 3"]],
+    on="Club Name",
+    how="left"
+)
+df_filtered["Top 3"] = df_filtered["Top 3"].fillna(False)
+
+df_filtered[['Total Club Points', incentives_tier_name]] = df_filtered[['Total Club Points', incentives_tier_name]].astype(int)
+
+display_cols = ['Club Name', incentives_tier_name, 'Total Club Points', 'Top 3']
 df_to_display = df_filtered[display_cols].drop(columns='Top 3')
 
-# Highlight Top 3
 def highlight_top3(row):
     return ['background-color: #fff9c4' if df_filtered.loc[row.name, 'Top 3'] else '' for _ in row]
 
