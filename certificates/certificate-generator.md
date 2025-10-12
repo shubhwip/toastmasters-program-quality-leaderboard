@@ -9,3 +9,6 @@
 - Copy [certificate-generator.js](./certificate-generator.js) script into Google Apps Script
 - Give Permissions of Google Slides and Google Sheets API
 - Setup a Trigger on `onFormSubmit` with Form's Output Sheet.
+
+## Verification
+- If final incentives distribution list has invalid or missing data then email will be sent to incentives coordinators for further verification and it incorrect incentives distribution list won't be sent to Active Campaign Manager.
