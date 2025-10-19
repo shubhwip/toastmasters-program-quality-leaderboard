@@ -17,7 +17,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-st.markdown("<h2 style='text-align: center;'>🏆 Program Quality Leaderboard</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center;'>🏆 Program Quality Quarterly Incentives Leaderboard</h2>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center;'>Tracking club excellence across size and progress tiers.</p>", unsafe_allow_html=True)
 
 
@@ -135,7 +135,7 @@ display_cols = ['Club Name', incentives_tier_name, 'Total Club Points', 'Top 3']
 df_to_display = df_filtered[display_cols].drop(columns='Top 3')
 
 def highlight_top3(row):
-    return ['background-color: #fff9c4' if df_filtered.loc[row.name, 'Top 3'] else '' for _ in row]
+    return ['background-color: rgba(255, 215, 0, 0.25);' if df_filtered.loc[row.name, 'Top 3'] else '' for _ in row]
 
 styled_df = df_to_display.style.apply(highlight_top3, axis=1)
 st.dataframe(styled_df, use_container_width=True, hide_index=True)
