@@ -1,5 +1,48 @@
 import pandas as pd
-from datetime import date
+from datetime import date, datetime
+
+def compute_has_TC(
+    df: pd.DataFrame,
+    col_club: str = "Name",
+    col_member: str = "Member",
+    col_award: str = "Award"
+) -> pd.Series:
+    """
+    Compute has_TC flag:
+    A club gets TC if any single Member has the same prefix
+    with ANY 3 consecutive level numbers (e.g., 1-2-3, 2-3-4, or 3-4-5).
+    """
+
+    # Extract prefix and numeric level (1–5)
+    s = df[col_award].astype(str).str.upper().str.strip()
+    extracted = s.str.extract(r"^([A-Z]+)([1-5])$")
+    df["_prefix"], df["_lvl"] = extracted[0], extracted[1]
+
+    # Convert level to int for numeric comparison
+    df["_lvl"] = df["_lvl"].astype(float)
+
+    # For each Name + Member + prefix → check if any 3 consecutive levels exist
+    def has_three_consecutive(levels):
+        levels = sorted(set(int(l) for l in levels if not pd.isna(l)))
+        return any(
+            levels[i] + 1 in levels and levels[i] + 2 in levels
+            for i in range(len(levels))
+        )
+
+    tc_per_member_prefix = (
+        df.dropna(subset=["_prefix", "_lvl", col_member])
+          .groupby([col_club, col_member, "_prefix"])["_lvl"]
+          .apply(has_three_consecutive)
+          .reset_index(name="has_TC_member_prefix_full")
+    )
+
+    # A Name earns TC if any single member completes 3 consecutive levels in one prefix
+    has_tc_by_name = (
+        tc_per_member_prefix.groupby(col_club)["has_TC_member_prefix_full"]
+                            .any()
+    )
+
+    return df[col_club].map(has_tc_by_name).fillna(False)
 
 def compute_award_points(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -31,7 +74,7 @@ def compute_award_points(df: pd.DataFrame) -> pd.DataFrame:
     df["has_L4"] = s.str.endswith("4")
     df["has_L5"] = s.str.endswith("5")
     df["has_DTM"] = s.eq("DTM")
-    df["has_TC"]  = s.eq("TC")
+    df["has_TC"] = compute_has_TC(df)
     df["has_FF"]  = s.eq("FF")
 
     # Collapse to club level
@@ -74,6 +117,17 @@ def calculate_points(df: pd.DataFrame, df_edu: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
+def is_valid_humorous_contest(x: pd.Series) -> bool:
+    """
+    Returns True if the Humorous Speech Contest was held on or before 22 Oct 2025.
+    """
+    cutoff = datetime(2025, 10, 24)
+    # Convert to datetime safely (errors='coerce' will turn invalid entries into NaT)
+    dates = pd.to_datetime(x, errors='coerce', dayfirst=False)
+    # Return True only if at least one valid date <= cutoff
+    return (dates.notna() & (dates <= cutoff)).any()
+
+
 def calculate_contest_points(df: pd.DataFrame) -> pd.DataFrame:
     """
     Returns one row per club with four contest scores as columns.
@@ -103,12 +157,23 @@ def calculate_contest_points(df: pd.DataFrame) -> pd.DataFrame:
 
     # For each contest, compute max score
     for contest, col in date_cols.items():
-        scores_contest = (
-            df.groupby(COL_CLUB)[col]
-              .apply(lambda x: 10 if x.notna().any() and (x.astype(str).str.strip() != "").any() else 0)
-              .reset_index(name=contest)
-        )
+        if contest == "Humorous Contest":
+            # Apply cutoff rule using the helper function
+            scores_contest = (
+                df.groupby(COL_CLUB)[col]
+                .apply(lambda x: 10 if is_valid_humorous_contest(x) else 0)
+                .reset_index(name=contest)
+            )
+        else:
+            # Default rule (any non-empty date)
+            scores_contest = (
+                df.groupby(COL_CLUB)[col]
+                .apply(lambda x: 10 if x.notna().any() and (x.astype(str).str.strip() != "").any() else 0)
+                .reset_index(name=contest)
+            )
+
         scores = scores.merge(scores_contest, left_on="Club Name", right_on=COL_CLUB).drop(columns=[COL_CLUB])
+
 
     return scores
 

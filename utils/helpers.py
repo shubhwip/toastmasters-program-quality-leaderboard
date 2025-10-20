@@ -4,6 +4,7 @@ import re
 from datetime import datetime
 import requests
 from utils.metrics import *
+import io
 
 def extract_update_date(file_url):
     """Extract and format the last update date from filename in content-disposition header."""
@@ -53,6 +54,40 @@ def load_csv_from_secret(secret_key: str, columns: list[str]) -> pd.DataFrame:
         df = pd.DataFrame(columns=columns)
     return df
 
+def load_data_from_secret(secret_key: str, columns: list[str]) -> pd.DataFrame:
+    """
+    Loads a CSV or XLSX file from Google Drive using a file ID stored in Streamlit secrets.
+    Automatically detects the format based on file extension or content.
+    If loading fails, returns an empty DataFrame with the given columns.
+    """
+
+    try:
+        file_id = st.secrets[secret_key]
+        gsheet_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+
+        # Fetch the file bytes
+        response = requests.get(gsheet_url)
+        response.raise_for_status()
+        content = response.content
+
+        # Try to infer the type from headers or extension
+        if "xlsx" in gsheet_url.lower() or response.headers.get("Content-Type", "").endswith("sheet"):
+            df = pd.read_excel(io.BytesIO(content))
+        elif "csv" in gsheet_url.lower() or "text" in response.headers.get("Content-Type", ""):
+            df = pd.read_csv(io.BytesIO(content))
+        else:
+            # Fallback attempt: try CSV first, then Excel
+            try:
+                df = pd.read_csv(io.BytesIO(content))
+            except Exception:
+                df = pd.read_excel(io.BytesIO(content))
+
+    except Exception as e:
+        # st.warning(f"Could not load file for {secret_key}: {e}")
+        df = pd.DataFrame(columns=columns)
+
+    return df
+
 def load_edu_ach_data(secret_key: str, columns: list[str]) -> pd.DataFrame:
     """
     Loads a CSV from Google Drive using a file ID stored in Streamlit secrets.
@@ -61,7 +96,7 @@ def load_edu_ach_data(secret_key: str, columns: list[str]) -> pd.DataFrame:
     try:
         file_id = st.secrets[secret_key]
         gsheet_url = f"https://drive.google.com/uc?export=download&id={file_id}"
-        df = pd.read_excel(gsheet_url, sheet_name="Master", skiprows=1)
+        df = pd.read_excel(gsheet_url, sheet_name="Sheet1", skiprows=1)
     except Exception as e:
         st.warning(f"Could not load Education Achievements data: {e}")
         df = pd.DataFrame(columns=columns)
@@ -79,7 +114,7 @@ def prepare_pathways_pioneers_data(df_club_performance):
     """
     df = df_club_performance.copy()
 
-    df_contests = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_CONTESTS", ["Select Your Club", "Humorous Contest", "TableTopics Contest", "Evaluation Contest", "International Contest"])
+    df_contests = load_data_from_secret("GOOGLE_DRIVE_FILE_ID_CONTESTS", ["Select Your Club", "Humorous Contest", "TableTopics Contest", "Evaluation Contest", "International Contest"])
     
     contests_points = calculate_contest_points(df_contests)
 
