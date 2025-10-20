@@ -17,7 +17,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-st.markdown("<h2 style='text-align: center;'>🏆 Program Quality Quarterly Incentives Leaderboard</h2>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align: center;'>🏆 Quarterly Incentives Leaderboard</h2>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center;'>Tracking club excellence across size and progress tiers.</p>", unsafe_allow_html=True)
 
 
@@ -60,7 +60,7 @@ incentives_tier_name = incentives_tiers[selected_incentive_tier_key]['Name']
 incentives_tier_desc = incentives_tiers[selected_incentive_tier_key]['Description']
 
 st.markdown(f"##### Top Clubs in {incentives_tier_name} tier in {group_name}")
-st.caption(f"Tracking {incentives_tier_desc} in this incentive tier leaderboard")
+# st.caption(f"Tracking {incentives_tier_desc} in this incentive tier leaderboard")
 
 # ------------------ PREPARE CLUB DATA ------------------ #
 
