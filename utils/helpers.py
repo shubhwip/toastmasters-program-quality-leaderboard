@@ -33,11 +33,13 @@ def load_club_performance_data(secret_key: str) -> pd.DataFrame:
     try:
         file_id = st.secrets[secret_key]
         gsheet_url = f"https://drive.google.com/uc?export=download&id={file_id}"
-        
-        # Optional: Extract last update date from file if needed
-        update_date = extract_update_date(gsheet_url)
 
         df = pd.read_csv(gsheet_url)
+        try:
+            update_date = df.iloc[-1]['Division'][-10:]
+        except Exception:
+            update_date = "Not available"
+
         df = df[df["Club Name"].notna()]  # Filter rows with non-empty club names
         return df, update_date
 
