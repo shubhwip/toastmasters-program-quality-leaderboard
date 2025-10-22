@@ -20,18 +20,51 @@ def extract_update_date(file_url):
         return date_obj.strftime("%B %d, %Y")
     return "Unknown"
 
+def load_club_performance_data(secret_key: str) -> pd.DataFrame:
+    """
+    Loads Club Performance data from Google Drive using a secret key.
+    
+    Args:
+        secret_key (str): The key to access the file ID from Streamlit secrets.
+
+    Returns:
+        pd.DataFrame: Cleaned DataFrame with valid club names.
+    """
+    try:
+        file_id = st.secrets[secret_key]
+        gsheet_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+        
+        # Optional: Extract last update date from file if needed
+        update_date = extract_update_date(gsheet_url)
+
+        df = pd.read_csv(gsheet_url)
+        df = df[df["Club Name"].notna()]  # Filter rows with non-empty club names
+        return df, update_date
+
+    except Exception as e:
+        st.warning(f"Could not load Club Performance data: {e}")
+        return pd.DataFrame(), 'January 01, 1900'  # Return empty DataFrame on failure
 
 # ------------------ Load and Prepare Data ------------------ #
 def load_data_club_performance(gsheet_url=None):
 
-    try:
-        file_id = st.secrets["GOOGLE_DRIVE_FILE_ID_CLUB_PERFORMANCE"]
-        gsheet_url = f"https://drive.google.com/uc?export=download&id={file_id}"
-        update_date = extract_update_date(gsheet_url)
-        df = pd.read_csv(gsheet_url)
-        df = df[df["Club Name"].notna()] 
-    except Exception as e:
-        st.warning(f"Could not load Club Performance data: {e}")
+    df_base, quater_base_date = load_club_performance_data(secret_key = "GOOGLE_DRIVE_FILE_ID_CLUB_PERFORMANCE_BASE")
+    df_latest, update_date = load_club_performance_data(secret_key = "GOOGLE_DRIVE_FILE_ID_CLUB_PERFORMANCE")
+    
+    base_col = ['District', 'Division', 'Area', 'Club Number', 'Club Name',
+       'Club Status', 'CSP', 'Mem. Base', 'Active Members', 'Net Growth']
+    other_col = ['Club Number', 'Goals Met', 'Level 1s', 'Level 2s', 'Add. Level 2s', 'Level 3s',
+       'Level 4s, Path Completions, or DTM Awards',
+       'Add. Level 4s, Path Completions, or DTM award', 'New Members',
+       'Add. New Members', 'Off. Trained Round 1', 'Off. Trained Round 2',
+       'Mem. dues on time Oct', 'Mem. dues on time Apr', 'Off. List On Time',
+       'Club Distinguished Status']
+
+    df = df_base[base_col].merge(df_latest[other_col], on='Club Number', how='left')
+
+    new_clubs = df_latest[~df_latest["Club Number"].isin(df_base["Club Number"])]
+
+    df = pd.concat([df, new_clubs], ignore_index=True)
 
     df_edu_achievements = load_edu_ach_data("GOOGLE_DRIVE_FILE_ID_EDU_ACHIEVEMENTS", ["Club", "Name", "Award", "Date"])
 
