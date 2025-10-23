@@ -68,8 +68,10 @@ def load_data_club_performance(gsheet_url=None):
 
     df = pd.concat([df, new_clubs], ignore_index=True)
 
-    df_edu_achievements = load_edu_ach_data("GOOGLE_DRIVE_FILE_ID_EDU_ACHIEVEMENTS", ["Club", "Name", "Award", "Date"])
+    df["Club Number"] = df["Club Number"].astype(int)
 
+    df_edu_achievements = load_edu_ach_data("GOOGLE_DRIVE_FILE_ID_EDU_ACHIEVEMENTS", ["Club", "Name", "Award", "Date"])
+    df_edu_achievements.rename(columns={"Club": "Club Number"}, inplace=True)
     df = calculate_points(df, df_edu_achievements)
     df = assign_grouping(df)
     # df = df[df['Group'] != 'Unknown']
@@ -82,45 +84,11 @@ def load_csv_from_secret(secret_key: str, columns: list[str]) -> pd.DataFrame:
     """
     try:
         file_id = st.secrets[secret_key]
-        gsheet_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+        gsheet_url = f"https://docs.google.com/spreadsheets/d/{file_id}/export?format=csv"
         df = pd.read_csv(gsheet_url)
     except Exception as e:
         # st.warning(f"Could not load file for {secret_key}: {e}")
         df = pd.DataFrame(columns=columns)
-    return df
-
-def load_data_from_secret(secret_key: str, columns: list[str]) -> pd.DataFrame:
-    """
-    Loads a CSV or XLSX file from Google Drive using a file ID stored in Streamlit secrets.
-    Automatically detects the format based on file extension or content.
-    If loading fails, returns an empty DataFrame with the given columns.
-    """
-
-    try:
-        file_id = st.secrets[secret_key]
-        gsheet_url = f"https://drive.google.com/uc?export=download&id={file_id}"
-
-        # Fetch the file bytes
-        response = requests.get(gsheet_url)
-        response.raise_for_status()
-        content = response.content
-
-        # Try to infer the type from headers or extension
-        if "xlsx" in gsheet_url.lower() or response.headers.get("Content-Type", "").endswith("sheet"):
-            df = pd.read_excel(io.BytesIO(content))
-        elif "csv" in gsheet_url.lower() or "text" in response.headers.get("Content-Type", ""):
-            df = pd.read_csv(io.BytesIO(content))
-        else:
-            # Fallback attempt: try CSV first, then Excel
-            try:
-                df = pd.read_csv(io.BytesIO(content))
-            except Exception:
-                df = pd.read_excel(io.BytesIO(content))
-
-    except Exception as e:
-        # st.warning(f"Could not load file for {secret_key}: {e}")
-        df = pd.DataFrame(columns=columns)
-
     return df
 
 def load_edu_ach_data(secret_key: str, columns: list[str]) -> pd.DataFrame:
@@ -149,11 +117,11 @@ def prepare_pathways_pioneers_data(df_club_performance):
     """
     df = df_club_performance.copy()
 
-    df_contests = load_data_from_secret("GOOGLE_DRIVE_FILE_ID_CONTESTS", ["Select Your Club", "Humorous Contest", "TableTopics Contest", "Evaluation Contest", "International Contest"])
+    df_contests = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_CONTESTS", ["Select Your Club", "Humorous Contest", "TableTopics Contest", "Evaluation Contest", "International Contest"])
     
     contests_points = calculate_contest_points(df_contests)
 
-    df_pathways_pioneers = df.merge(contests_points, left_on="Club Name", right_on="Club Name", how="left")
+    df_pathways_pioneers = df.merge(contests_points, left_on="Club Number", right_on="Club Number", how="left")
 
     df_pathways_pioneers = df_pathways_pioneers.fillna(0)
 
@@ -188,27 +156,27 @@ def prepare_leadership_innovators_data(df_club_performance):
     df_mot = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_MOMENTS_OF_TRUTH", ["Select Your Club", "MOT_Q1", "MOT_Q3"])
     df_mot_scores = mot_scores(df_mot)
 
-    df_leadership_innovators = df.merge(df_mot_scores, left_on="Club Name", right_on="Club Name", how="left")
+    df_leadership_innovators = df.merge(df_mot_scores, left_on="Club Number", right_on="Club Number", how="left")
 
     # Load and process PCC data
     df_pcc = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_PATHWAYS_COMPLETION_CELEBRATION", ["Select Your Club", "Pathways_Completion_Celebration"])
     df_pcc_scores = pathways_completion_scores(df_pcc)
-    df_leadership_innovators = df_leadership_innovators.merge(df_pcc_scores, left_on="Club Name", right_on="Club Name", how="left")
+    df_leadership_innovators = df_leadership_innovators.merge(df_pcc_scores, left_on="Club Number", right_on="Club Number", how="left")
 
     # Load and process Mentorship Program data
     df_mp = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_MENTORSHIP_PROGRAM", ["Select Your Club", "Mentorship_Programme"])
     df_mp_scores = mentorship_programme_scores(df_mp)
-    df_leadership_innovators = df_leadership_innovators.merge(df_mp_scores, left_on="Club Name", right_on="Club Name", how="left")
+    df_leadership_innovators = df_leadership_innovators.merge(df_mp_scores, left_on="Club Number", right_on="Club Number", how="left")
 
     # Load and process dcp data
     df_dcp = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_DCP", ["Select Your Club", "Distinguished_Club_Partners"])
     df_dcp_scores = distinguished_club_partners_scores(df_dcp)
-    df_leadership_innovators = df_leadership_innovators.merge(df_dcp_scores, left_on="Club Name", right_on="Club Name", how="left")
+    df_leadership_innovators = df_leadership_innovators.merge(df_dcp_scores, left_on="Club Number", right_on="Club Number", how="left")
 
     # Load and process sth data
     df_sth = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_STH", ["Select Your Club", "Successful_Transition_Handover"])
     df_sth_scores = successful_handover_scores(df_sth)
-    df_leadership_innovators = df_leadership_innovators.merge(df_sth_scores, left_on="Club Name", right_on="Club Name", how="left")
+    df_leadership_innovators = df_leadership_innovators.merge(df_sth_scores, left_on="Club Number", right_on="Club Number", how="left")
 
     df_leadership_innovators['President_Distinguished'] = 0
     df_leadership_innovators['Smedley_Distinguished'] = 0
@@ -249,12 +217,12 @@ def prepare_excellence_champions_data(df_club_performance):
     df_qis = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_QIS", ["Select Your Club", "Quality_Initiatives"])
 
     df_qis_scores = quality_initiatives_scores(df_qis)
-    df_excellence_champions = df.merge(df_qis_scores, left_on="Club Name", right_on="Club Name", how="left")
+    df_excellence_champions = df.merge(df_qis_scores, left_on="Club Number", right_on="Club Number", how="left")
 
     df_mo = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_MEMBER_ONBOARDING", ["Select Your Club", "Member_Onboarding"])
 
     df_mo_scores = member_onboarding_scores(df_mo)
-    df_excellence_champions = df_excellence_champions.merge(df_mo_scores, left_on="Club Name", right_on="Club Name", how="left")
+    df_excellence_champions = df_excellence_champions.merge(df_mo_scores, left_on="Club Number", right_on="Club Number", how="left")
 
     df_excellence_champions["Club_Success_Plan"] = df_excellence_champions["CSP"].apply(
     lambda x: 20 if str(x).strip().upper() == "Y" else 0

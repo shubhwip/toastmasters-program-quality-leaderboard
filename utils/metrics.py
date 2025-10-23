@@ -64,7 +64,7 @@ def compute_award_points(df: pd.DataFrame) -> pd.DataFrame:
             "DTM_Points", "TC_Points", "Early10_Distinguished"
         ])
 
-    COL_CLUB = "Name"
+    CLUB_NUMBER = "Club Number"
     COL_AWARD = "Award"
 
     # Normalise awards text
@@ -79,14 +79,14 @@ def compute_award_points(df: pd.DataFrame) -> pd.DataFrame:
 
     # Collapse to club level
     club_flags = (
-        df.groupby(COL_CLUB, dropna=False)[["has_L4","has_L5","has_DTM","has_TC","has_FF"]]
+        df.groupby(CLUB_NUMBER, dropna=False)[["has_L4","has_L5","has_DTM","has_TC","has_FF"]]
           .any()
           .reset_index()
     )
 
     # Map flags → points
     out = pd.DataFrame({
-        "Club Name": club_flags[COL_CLUB],
+        CLUB_NUMBER: club_flags[CLUB_NUMBER],
         "L4 Points": club_flags["has_L4"].astype(int) * 40,
         "L5 Points": club_flags["has_L5"].astype(int) * 50,
         "DTM Points": club_flags["has_DTM"].astype(int) * 60,
@@ -113,7 +113,7 @@ def calculate_points(df: pd.DataFrame, df_edu: pd.DataFrame) -> pd.DataFrame:
     df['COT R1 Points'] = df['Off. Trained Round 1'].apply(lambda x: 20 if x >= 7 else 0)
     df['COT R2 Points'] = df['Off. Trained Round 2'].apply(lambda x: 20 if x >= 7 else 0)
 
-    df = df.merge(df_edu_points, left_on="Club Name", right_on="Club Name", how="left").fillna(0)
+    df = df.merge(df_edu_points, left_on="Club Number", right_on="Club Number", how="left").fillna(0)
 
     return df
 
@@ -135,6 +135,7 @@ def calculate_contest_points(df: pd.DataFrame) -> pd.DataFrame:
     """
 
     COL_CLUB = "Select Your Club"
+    CLUB_NUMBER = "Club Number"
     date_cols = {
         "Humorous Contest": "Date the Humorous Speech Contest was held",
         "TableTopics Contest": "Date the Table Topics Contest was held",
@@ -145,35 +146,37 @@ def calculate_contest_points(df: pd.DataFrame) -> pd.DataFrame:
     # Handle empty input → return empty with expected columns
     if df.empty:
         return pd.DataFrame(
-            columns=["Club Name"] + list(date_cols.keys())
+            columns=["Club Number"] + list(date_cols.keys())
         )
 
     # Clean club names
+    df[CLUB_NUMBER] = df[COL_CLUB].str.split('---- ').str[-1].str.strip()
     df[COL_CLUB] = df[COL_CLUB].str.split(' ----').str[0].str.strip()
 
     # Start with club column
     scores = pd.DataFrame()
-    scores["Club Name"] = df[COL_CLUB].unique()
+    scores[CLUB_NUMBER] = df[CLUB_NUMBER].unique()
 
     # For each contest, compute max score
     for contest, col in date_cols.items():
         if contest == "Humorous Contest":
             # Apply cutoff rule using the helper function
             scores_contest = (
-                df.groupby(COL_CLUB)[col]
+                df.groupby(CLUB_NUMBER)[col]
                 .apply(lambda x: 10 if is_valid_humorous_contest(x) else 0)
                 .reset_index(name=contest)
             )
         else:
             # Default rule (any non-empty date)
             scores_contest = (
-                df.groupby(COL_CLUB)[col]
+                df.groupby(CLUB_NUMBER)[col]
                 .apply(lambda x: 10 if x.notna().any() and (x.astype(str).str.strip() != "").any() else 0)
                 .reset_index(name=contest)
             )
 
-        scores = scores.merge(scores_contest, left_on="Club Name", right_on=COL_CLUB).drop(columns=[COL_CLUB])
+        scores = scores.merge(scores_contest, left_on="Club Number", right_on=CLUB_NUMBER)
 
+    scores["Club Number"] = scores["Club Number"].astype(int)
 
     return scores
 
@@ -221,6 +224,9 @@ def mot_scores(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame(columns=["Club Name", "MOT_Q1", "MOT_Q3"])
     
+    CLUB_NUMBER = "Club Number"
+
+    df[CLUB_NUMBER] = df[COL_CLUB].str.split('---- ').str[-1].str.strip()
     df[COL_CLUB] = df[COL_CLUB].str.split(' ----').str[0].str.strip()
     # convert to datetime (dayfirst since it's dd/mm/yyyy)
     mot_dates = pd.to_datetime(df[COL_DATE], dayfirst=True, errors="coerce").dt.date
@@ -229,12 +235,14 @@ def mot_scores(df: pd.DataFrame) -> pd.DataFrame:
     q2_start, q2_end = date(2026, 1, 1), date(2026, 6, 30)
 
     df_out = pd.DataFrame({
-        "Club Name": df[COL_CLUB],
+        CLUB_NUMBER: df[CLUB_NUMBER],
         "MOT_Q1": ((mot_dates >= q1_start) & (mot_dates <= q1_end)).astype(int) * 15,
         "MOT_Q3": ((mot_dates >= q2_start) & (mot_dates <= q2_end)).astype(int) * 15
     })
 
-    return df_out.groupby("Club Name", as_index=False).max()
+    df_out[CLUB_NUMBER] = df_out[CLUB_NUMBER].astype(int)
+
+    return df_out.groupby(CLUB_NUMBER, as_index=False).max()
 
 def pathways_completion_scores(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -243,15 +251,19 @@ def pathways_completion_scores(df: pd.DataFrame) -> pd.DataFrame:
     """
 
     COL_CLUB = "Select Your Club"
+    CLUB_NUMBER = "Club Number"
 
+    df[CLUB_NUMBER] = df[COL_CLUB].str.split('---- ').str[-1].str.strip()
     df[COL_CLUB] = df[COL_CLUB].str.split(' ----').str[0].str.strip()
 
     df_out = pd.DataFrame({
-        "Club Name": df[COL_CLUB],
+        CLUB_NUMBER: df[CLUB_NUMBER],
         "Pathways_Completion_Celebration": 10
     })
 
-    return df_out.groupby("Club Name", as_index=False).max()
+    df_out[CLUB_NUMBER] = df_out[CLUB_NUMBER].astype(int)
+
+    return df_out.groupby(CLUB_NUMBER, as_index=False).max()
 
 def mentorship_programme_scores(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -260,15 +272,19 @@ def mentorship_programme_scores(df: pd.DataFrame) -> pd.DataFrame:
     """
 
     COL_CLUB = "Select Your Club"
+    CLUB_NUMBER = "Club Number"
 
+    df[CLUB_NUMBER] = df[COL_CLUB].str.split('---- ').str[-1].str.strip()
     df[COL_CLUB] = df[COL_CLUB].str.split(' ----').str[0].str.strip()
 
     df_out = pd.DataFrame({
-        "Club Name": df[COL_CLUB],
+        CLUB_NUMBER: df[CLUB_NUMBER],
         "Mentorship_Programme": 10
     })
 
-    return df_out.groupby("Club Name", as_index=False).max()
+    df_out[CLUB_NUMBER] = df_out[CLUB_NUMBER].astype(int)
+
+    return df_out.groupby(CLUB_NUMBER, as_index=False).max()
 
 def distinguished_club_partners_scores(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -276,15 +292,19 @@ def distinguished_club_partners_scores(df: pd.DataFrame) -> pd.DataFrame:
     - 50 points if the club is listed (i.e., helped another club become distinguished)
     """
     COL_CLUB = "Select Your Club"
+    CLUB_NUMBER = "Club Number"
 
+    df[CLUB_NUMBER] = df[COL_CLUB].str.split('---- ').str[-1].str.strip()
     df[COL_CLUB] = df[COL_CLUB].str.split(' ----').str[0].str.strip()
 
     df_out = pd.DataFrame({
-        "Club Name": df[COL_CLUB],
+        "Club Number": df[CLUB_NUMBER],
         "Distinguished_Club_Partners": 50
     })
 
-    return df_out.groupby("Club Name", as_index=False).max()
+    df_out[CLUB_NUMBER] = df_out[CLUB_NUMBER].astype(int)
+
+    return df_out.groupby(CLUB_NUMBER, as_index=False).max()
 
 def successful_handover_scores(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -292,15 +312,19 @@ def successful_handover_scores(df: pd.DataFrame) -> pd.DataFrame:
     - 20 points if the club is listed (i.e., submitted handover report)
     """
     COL_CLUB = "Select Your Club"
+    CLUB_NUMBER = "Club Number"
 
+    df[CLUB_NUMBER] = df[COL_CLUB].str.split('---- ').str[-1].str.strip()
     df[COL_CLUB] = df[COL_CLUB].str.split(' ----').str[0].str.strip()
 
     df_out = pd.DataFrame({
-        "Club Name": df[COL_CLUB],
+        CLUB_NUMBER: df[CLUB_NUMBER],
         "Successful_Transition_Handover": 20
     })
 
-    return df_out.groupby("Club Name", as_index=False).max()
+    df_out[CLUB_NUMBER] = df_out[CLUB_NUMBER].astype(int)
+
+    return df_out.groupby(CLUB_NUMBER, as_index=False).max()
 
 def quality_initiatives_scores(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -308,15 +332,19 @@ def quality_initiatives_scores(df: pd.DataFrame) -> pd.DataFrame:
     - 15 points if the club submitted a unique quality initiative (e.g., Speakathon, themed meeting)
     """
     COL_CLUB = "Select Your Club"
+    CLUB_NUMBER = "Club Number"
 
+    df[CLUB_NUMBER] = df[COL_CLUB].str.split('---- ').str[-1].str.strip()
     df[COL_CLUB] = df[COL_CLUB].str.split(' ----').str[0].str.strip()
 
     df_out = pd.DataFrame({
-        "Club Name": df[COL_CLUB],
+        "Club Number": df[CLUB_NUMBER],
         "Quality_Initiatives": 15
     })
 
-    return df_out.groupby("Club Name", as_index=False).max()
+    df_out[CLUB_NUMBER] = df_out[CLUB_NUMBER].astype(int)
+
+    return df_out.groupby(CLUB_NUMBER, as_index=False).max()
 
 def member_onboarding_scores(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -324,12 +352,16 @@ def member_onboarding_scores(df: pd.DataFrame) -> pd.DataFrame:
     - 10 points if the club reported having a member onboarding program
     """
     COL_CLUB = "Select Your Club"
+    CLUB_NUMBER = "Club Number"
 
+    df[CLUB_NUMBER] = df[COL_CLUB].str.split('---- ').str[-1].str.strip()
     df[COL_CLUB] = df[COL_CLUB].str.split(' ----').str[0].str.strip()
 
     df_out = pd.DataFrame({
-        "Club Name": df[COL_CLUB],
+        CLUB_NUMBER: df[CLUB_NUMBER],
         "Member_Onboarding": 10
     })
 
-    return df_out.groupby("Club Name", as_index=False).max()
+    df_out[CLUB_NUMBER] = df_out[CLUB_NUMBER].astype(int)
+
+    return df_out.groupby(CLUB_NUMBER, as_index=False).max()
