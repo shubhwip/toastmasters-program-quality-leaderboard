@@ -1,19 +1,8 @@
-const SLIDE_TEMPLATE_ID = 'PROVIDE_YOUR_VALUE';
-const OFFICERS_SHEET_ID = 'PROVIDE_YOUR_VALUE'; 
-const OFFICERS_SHEET_NAME = 'Club Officer';
-const FINAL_SHEET_LINK = 'Final Certificates';
-const DIV_AREA_LEADER_SHEET_ID = 'PROVIDE_YOUR_VALUE'; 
-const DISTRICT_LEADERS_SHEET_ID = 'PROVIDE_YOUR_VALUE'; // Sheet with Name, Div Dir/AD, Division, Area, Email
-const DISTRICT_LEADERS_SHEET_NAME = 'Sheet1'; 
-const ACTIVE_CAMPAIGN_MANAGER_EMAIL = 'PROVIDE_YOUR_VALUE';
-const EMAIL_TEMPLATE_DOC_ID = 'PROVIDE_YOUR_VALUE';
-
-// Add these constants with your other constants at the top
-const VERIFICATION_EMAIL_RECIPIENTS = [
-  'PROVIDE_YOUR_VALUE',
-  'PROVIDE_YOUR_VALUE', 
-  'PROVIDE_YOUR_VALUE'
-];
+// send submission email with proper links of incentives to finance manager
+// send email directly from this sheet
+// make more things configurable and constants
+// create incentivefolders in respective directory
+// create sheet in one directory with certain name constants
 
 /**
  * Club Incentive Certificate Generation Script
@@ -77,7 +66,7 @@ function processSubmission(sheet, rowIdx) {
   // Process each club
   const processedRows = processClubs(submissionWorkbook.sheet, headers, formRow, submissionDetails);
   
-  // Write submission sheet link back to original form
+  // Write submission sheet link to original form
   writeSubmissionLink(sheet, rowIdx, submissionWorkbook.url);
   
   // Generate certificates for each processed row
@@ -93,7 +82,8 @@ function processSubmission(sheet, rowIdx) {
   
   // Send email notification only if verification passed
   if (verificationPassed) {
-    sendSubmissionNotification(submissionWorkbook.url, submissionDetails.incentiveType, submissionDetails.clubs);
+    //sendCertificateEmails(submissionWorkbook.sheet, processedRows);
+    //sendSubmissionNotification(submissionWorkbook.url, submissionDetails.incentiveType, submissionDetails.clubs);
   } else {
     console.warn('Skipping success notification email due to verification errors');
   }
@@ -176,13 +166,13 @@ function createEnhancedHeaders(originalHeaders, incentiveType) {
   }
   
   newHeaders.push(
+    'Certificate',
     'Division Director Email',
     'Area Director Email', 
     'Finance Director Email',
     'Incentives Director Email',
     'D91incentives Email',
   );
-  newHeaders.pop('Final Certificates');  
   return newHeaders;
 }
 
@@ -219,9 +209,25 @@ function processClubs(submissionSheet, headers, formRow, submissionDetails) {
     const clubRowData = [...formRow];
     clubRowData[submissionDetails.clubCellIdx] = club;
     
-    // Look up officer emails
-    const officerEmails = lookupOfficerEmails(officersSheet, club, submissionDetails.incentiveType);
-    const finalRow = clubRowData.concat(officerEmails);
+    // Lookup officer emails as a map and build an ordered array for the sheet columns
+    const officerLookup = lookupOfficerEmails(officersSheet, club, submissionDetails.incentiveType);
+    const emailMap = officerLookup.emailMap || {};
+
+    // Choose VPM or VPE based on incentive type
+    const vpmOrVpeEmail = submissionDetails.incentiveType === 'CGD'
+      ? (emailMap['Club VP Membership'] || '')
+      : (emailMap['Club VP Education'] || '');
+
+    const treasurerEmail = emailMap['Club Treasurer'] || '';
+    const presidentEmail = emailMap['Club President'] || '';
+
+    // Add Claimed Status first, then officer emails in the correct order
+    const finalRow = clubRowData.concat([
+      'Unclaimed', // Claimed Status
+      vpmOrVpeEmail, // VPM/VPE Email Address
+      treasurerEmail, // Treasurer Email Address  
+      presidentEmail // President Email Address
+    ]);
     
     // Add to submission sheet
     submissionSheet.appendRow(finalRow);
@@ -565,7 +571,7 @@ function lookupDistrictLeaderEmails(districtLeadersSheet, division, area, incent
   
   // Incentives Director Email based on type
   const incentivesDirectorEmail = incentiveType === 'CGD' 
-    ? 'lynnecantorgayer@gmail.com' 
+    ? 'club.growth.director@d91toastmasters.org.uk' 
     : 'seematoastmaster@gmail.com';
   
   // D91 Incentives Email (constant)
@@ -615,25 +621,39 @@ function writeDistrictLeaderEmails(sheet, rowIdx, headers, leaderEmails) {
  */
 function lookupOfficerEmails(officersSheet, clubName, incentiveType) {
   const officesNeeded = getRequiredOffices(incentiveType);
-  
-  // Get all officer data once
+
+  // Read sheet once
   const data = officersSheet.getDataRange().getValues();
   const headers = data[0];
   const clubCol = headers.indexOf('Club Name');
   const officeCol = headers.indexOf('Office');
   const emailCol = headers.indexOf('Email Address');
-  
-  // Find email for each required office
-  const emails = officesNeeded.map(officeType => {
-    const match = data.find(row =>
-      row[clubCol] && row[clubCol].toString().trim() === clubName &&
-      row[officeCol] && row[officeCol].toString().trim() === officeType
-    );
-    return match ? match[emailCol] : '';
-  });
-  
-  console.log(`Officer emails for ${clubName}:`, emails);
-  return emails;
+
+  // Build map of officeName -> email for this club
+  const emailMap = {};
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const rowClub = row[clubCol] ? row[clubCol].toString().trim() : '';
+    if (rowClub !== clubName) continue;
+
+    const officeName = row[officeCol] ? row[officeCol].toString().trim() : '';
+    const email = row[emailCol] ? row[emailCol].toString().trim() : '';
+    if (officeName) {
+      emailMap[officeName] = email;
+    }
+  }
+
+  // Preserve previous behavior: ordered array of emails for required offices
+  const emails = officesNeeded.map(officeType => emailMap[officeType] || '');
+
+  console.log(`Officer emails array for ${clubName}:`, emails);
+  console.log(`Officer email map for ${clubName}:`, emailMap);
+
+  // Return both the array (for backward compatibility) and the map
+  return {
+    emails,    // array in the same order as getRequiredOffices()
+    emailMap   // lookup by office name -> email
+  };
 }
 
 /**
@@ -963,6 +983,152 @@ ${errors.map(error => `<li>${error}</li>`).join('\n')}
     
   } catch (error) {
     console.error('Error sending verification email:', error);
+  }
+}
+
+
+// /**
+//  * Sends personalized certificate emails to club officers for each row
+//  * @param {Sheet} submissionSheet - Submission sheet
+//  * @param {Array} processedRows - Array of processed row data
+//  */
+// function sendCertificateEmails(submissionSheet, processedRows) {
+//   console.log('=== Starting Certificate Email Distribution ===');
+  
+//   try {
+//     // Get email template
+//     const templateDoc = DocumentApp.openById(EMAIL_TEMPLATE_DOC_ID);
+//     const templateBody = templateDoc.getBody().getText();
+    
+//     const data = submissionSheet.getDataRange().getValues();
+//     const headers = data[0];
+    
+//     // Process each row (club)
+//     processedRows.forEach(rowInfo => {
+//       try {
+//         const rowData = data[rowInfo.rowIndex - 1]; // Convert to 0-based index
+//         sendIndividualCertificateEmail(headers, rowData, templateBody);
+//       } catch (error) {
+//         console.error(`Error sending email for row ${rowInfo.rowIndex}:`, error);
+//       }
+//     });
+    
+//     console.log('Certificate emails sent successfully');
+    
+//   } catch (error) {
+//     console.error('Error in sendCertificateEmails:', error);
+//   }
+// }
+
+/**
+ * Sends individual certificate email for a specific club/row
+ * @param {Array} headers - Column headers
+ * @param {Array} rowData - Row data
+ * @param {string} templateBody - Email template body
+ */
+function sendIndividualCertificateEmail(headers, rowData, templateBody) {
+  // Get column indices
+  const getColumnValue = (columnName) => {
+    const idx = headers.indexOf(columnName);
+    return idx !== -1 ? (rowData[idx] || '') : '';
+  };
+  
+  // Extract recipient emails
+  const presidentEmail = getColumnValue('President Email Address');
+  const treasurerEmail = getColumnValue('Treasurer Email Address');
+  const incentiveType = getColumnValue('Incentive Type');
+  
+  // VPM for CGD, VPE for PQD
+  let vpEmail = '';
+  if (incentiveType === 'CGD') {
+    vpEmail = getColumnValue('VPM Email Address');
+  } else if (incentiveType === 'PQD') {
+    vpEmail = getColumnValue('VPE Email Address');
+  }
+  
+  // CC recipients
+  const divisionDirectorEmail = getColumnValue('Division Director Email');
+  const areaDirectorEmail = getColumnValue('Area Director Email');
+  const financeDirectorEmail = getColumnValue('Finance Director Email');
+  const incentivesDirectorEmail = getColumnValue('Incentives Director Email');
+  
+  // BCC recipient
+  const d91incentivesEmail = getColumnValue('D91incentives Email');
+  
+  // Validate we have at least one TO recipient
+  const toRecipients = [presidentEmail, treasurerEmail, vpEmail].filter(email => email.trim() !== '');
+  if (toRecipients.length === 0) {
+    console.warn(`No valid TO recipients for club: ${getColumnValue('Club Names')}`);
+    return;
+  }
+  
+  // Prepare CC recipients
+  const ccRecipients = [
+    divisionDirectorEmail,
+    areaDirectorEmail,
+    financeDirectorEmail,
+    incentivesDirectorEmail
+  ].filter(email => email.trim() !== '');
+  
+  // Replace all placeholders in email body
+  let emailBody = templateBody;
+  
+  // Replace each column placeholder
+  headers.forEach((header, index) => {
+    let value = rowData[index];
+    
+    // Format dates nicely
+    if (header.includes('Date') && value instanceof Date) {
+      value = dayWithDateFromDateObject(value);
+    } else if (value === null || value === undefined) {
+      value = '';
+    } else {
+      value = value.toString();
+    }
+    
+    // Replace placeholder {{COLUMN_NAME}}
+    const placeholder = `{{${header}}}`;
+    emailBody = emailBody.replace(new RegExp(placeholder, 'g'), value);
+  });
+  
+  // Additional common replacements
+  emailBody = emailBody
+    .replace(/{{CURRENT_DATE}}/g, new Date().toLocaleDateString())
+    .replace(/{{CURRENT_YEAR}}/g, new Date().getFullYear().toString());
+  
+  // Create subject line
+  const clubName = getColumnValue('Club Names');
+  const awardName = getColumnValue('Award Name');
+  const subject = `Congratulations ${clubName} 🎉 Claim Your ${awardName} Incentive – Celebrate Your Success!`
+  
+  // Send email
+  try {
+    const emailOptions = {
+      to: toRecipients.join(','),
+      subject: subject,
+      body: emailBody,
+      htmlBody: emailBody.replace(/\n/g, '<br>'),
+      name: 'District 91 Incentives Team'
+    };
+    
+    if (ccRecipients.length > 0) {
+      emailOptions.cc = ccRecipients.join(',');
+    }
+    
+    if (d91incentivesEmail.trim() !== '') {
+      emailOptions.bcc = d91incentivesEmail;
+    }
+    
+    MailApp.sendEmail(emailOptions);
+    
+    console.log(`✓ Email sent for ${clubName}`);
+    console.log(`  TO: ${toRecipients.join(', ')}`);
+    if (ccRecipients.length > 0) {
+      console.log(`  CC: ${ccRecipients.join(', ')}`);
+    }
+    
+  } catch (error) {
+    console.error(`Error sending email for ${clubName}:`, error);
   }
 }
 
