@@ -1,6 +1,5 @@
 import pandas as pd
 from datetime import date, datetime
-import streamlit as st
 
 def compute_has_TC(
     df: pd.DataFrame,
@@ -45,7 +44,7 @@ def compute_has_TC(
 
     return df[col_club].map(has_tc_by_name).fillna(False)
 
-def compute_award_points(df: pd.DataFrame) -> pd.DataFrame:
+def compute_award_points(df: pd.DataFrame, df_tc: pd.DataFrame) -> pd.DataFrame:
     """
     Compute award-based points per club.
     
@@ -68,6 +67,8 @@ def compute_award_points(df: pd.DataFrame) -> pd.DataFrame:
     CLUB_NUMBER = "Club Number"
     COL_AWARD = "Award"
 
+    df.rename(columns={"Name": "Club Name"}, inplace=True)
+
     # Normalise awards text
     s = df[COL_AWARD].astype(str).str.upper().str.strip()
 
@@ -75,15 +76,17 @@ def compute_award_points(df: pd.DataFrame) -> pd.DataFrame:
     df["has_L4"] = s.str.endswith("4")
     df["has_L5"] = s.str.endswith("5")
     df["has_DTM"] = s.eq("DTM")
-    df["has_TC"] = compute_has_TC(df)
+    # df["has_TC"] = compute_has_TC(df)
     df["has_FF"]  = s.eq("FF")
 
     # Collapse to club level
     club_flags = (
-        df.groupby(CLUB_NUMBER, dropna=False)[["has_L4","has_L5","has_DTM","has_TC","has_FF"]]
+        df.groupby([CLUB_NUMBER, "Club Name"], dropna=False)[["has_L4","has_L5","has_DTM", "has_FF"]]
           .any()
           .reset_index()
     )
+    
+    club_flags['TC Points'] = calculate_club_points(club_flags, df_tc)
 
     # Map flags → points
     out = pd.DataFrame({
@@ -91,14 +94,14 @@ def compute_award_points(df: pd.DataFrame) -> pd.DataFrame:
         "L4 Points": club_flags["has_L4"].astype(int) * 40,
         "L5 Points": club_flags["has_L5"].astype(int) * 50,
         "DTM Points": club_flags["has_DTM"].astype(int) * 60,
-        "TC Points":  club_flags["has_TC"].astype(int) * 60,
+        "TC Points":  club_flags["TC Points"].astype(int),
         "Early10_Distinguished": club_flags["has_FF"].astype(int)  * 30,
     })
 
     return out
 
 
-def calculate_points(df: pd.DataFrame, df_edu: pd.DataFrame) -> pd.DataFrame:
+def calculate_points(df: pd.DataFrame, df_edu: pd.DataFrame, df_tc: pd.DataFrame) -> pd.DataFrame:
     # L1
     df['L1 Points'] = df['Level 1s'] * 10
     
@@ -108,7 +111,7 @@ def calculate_points(df: pd.DataFrame, df_edu: pd.DataFrame) -> pd.DataFrame:
     # L3
     df['L3 Points'] = df['Level 3s'] * 30
 
-    df_edu_points = compute_award_points(df_edu)
+    df_edu_points = compute_award_points(df_edu, df_tc)
 
     # COT Training Rounds
     df['COT R1 Points'] = df['Off. Trained Round 1'].apply(lambda x: 20 if x >= 7 else 0)
@@ -404,3 +407,32 @@ def pathway_enrollment_scores(df: pd.DataFrame) -> pd.DataFrame:
     scores[CLUB_NUMBER] = scores[CLUB_NUMBER].astype(int)
 
     return scores
+
+def calculate_club_points(
+        base_df: pd.DataFrame,
+        members_df: pd.DataFrame
+    ):
+    
+    POINTS_PER_MEMBER = 60
+    
+    unique_members_count = members_df.groupby('Club Name')['Member'].nunique().reset_index()
+    unique_members_count.columns = ['club_name', 'unique_members']
+    
+    # Merge base_df with unique member counts
+    merged_df = base_df.merge(
+        unique_members_count,
+        left_on='Club Name',
+        right_on='club_name',
+        how='left'
+    )
+    
+    # Fill NaN values with 0 (clubs with no members)
+    merged_df['unique_members'] = merged_df['unique_members'].fillna(0)
+    
+    # Calculate points: unique_members * 60
+    merged_df['points'] = merged_df['unique_members'] * POINTS_PER_MEMBER
+    
+    # Convert to integer and return as list
+    points_list = merged_df['points'].tolist()
+    
+    return points_list

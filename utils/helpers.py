@@ -74,9 +74,10 @@ def load_data_club_performance(gsheet_url=None):
 
     df["Club Number"] = df["Club Number"].astype(int)
 
-    df_edu_achievements = load_edu_ach_data("GOOGLE_DRIVE_FILE_ID_EDU_ACHIEVEMENTS", ["Club", "Name", "Award", "Date"])
+    df_edu_achievements = load_excel_data("GOOGLE_DRIVE_FILE_ID_EDU_ACHIEVEMENTS", ["Club", "Name", "Award", "Date"], sheet_name="Sheet1")
     df_edu_achievements.rename(columns={"Club": "Club Number"}, inplace=True)
-    df = calculate_points(df, df_edu_achievements)
+    df_tc = load_excel_data("GOOGLE_DRIVE_FILE_ID_TRIPLE_CROWN", ["Club Name", "Member"], sheet_name="300925")
+    df = calculate_points(df, df_edu_achievements, df_tc)
     df = assign_grouping(df)
     # df = df[df['Group'] != 'Unknown']
     return df, update_date
@@ -95,7 +96,7 @@ def load_csv_from_secret(secret_key: str, columns: list[str]) -> pd.DataFrame:
         df = pd.DataFrame(columns=columns)
     return df
 
-def load_edu_ach_data(secret_key: str, columns: list[str]) -> pd.DataFrame:
+def load_excel_data(secret_key: str, columns: list[str], sheet_name="Sheet1") -> pd.DataFrame:
     """
     Loads a CSV from Google Drive using a file ID stored in Streamlit secrets.
     If loading fails, returns an empty DataFrame with the given columns.
@@ -103,7 +104,7 @@ def load_edu_ach_data(secret_key: str, columns: list[str]) -> pd.DataFrame:
     try:
         file_id = st.secrets[secret_key]
         gsheet_url = f"https://drive.google.com/uc?export=download&id={file_id}"
-        df = pd.read_excel(gsheet_url, sheet_name="Sheet1", skiprows=1)
+        df = pd.read_excel(gsheet_url, sheet_name=sheet_name, skiprows=1)
     except Exception as e:
         st.warning(f"Could not load Education Achievements data: {e}")
         df = pd.DataFrame(columns=columns)
