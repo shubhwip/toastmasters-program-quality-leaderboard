@@ -1,5 +1,6 @@
 import pandas as pd
 from datetime import date, datetime
+import streamlit as st
 
 def compute_has_TC(
     df: pd.DataFrame,
@@ -365,3 +366,41 @@ def member_onboarding_scores(df: pd.DataFrame) -> pd.DataFrame:
     df_out[CLUB_NUMBER] = df_out[CLUB_NUMBER].astype(int)
 
     return df_out.groupby(CLUB_NUMBER, as_index=False).max()
+
+def pathway_enrollment_scores(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Returns Club Number | 100%_Pathway_Registration
+    - 10 points if all members in a club are enrolled in Pathways
+    """
+    
+    df.columns = df.iloc[0]   # Set second row as header
+    df = df[1:].reset_index(drop=True)   # Drop the old header row
+
+    df.rename(columns={'Club ID': 'Club Number'}, inplace=True)
+    CLUB_NUMBER = "Club Number"
+    COL_PATHWAYS = "Is Pathways Enrolled"
+
+    # If either column missing, return empty result
+    if CLUB_NUMBER not in df.columns or COL_PATHWAYS not in df.columns:
+        return pd.DataFrame(columns=[CLUB_NUMBER, "100%_Pathway_Registration"])
+
+    # Clean
+    df[CLUB_NUMBER] = df[CLUB_NUMBER].astype(str).str.strip()
+    df[COL_PATHWAYS] = df[COL_PATHWAYS].astype(str).str.strip()
+
+    # Group and score
+    def all_yes(series):
+        return series.str.lower().eq("yes").all()
+
+    scores = (
+        df.groupby(CLUB_NUMBER)[COL_PATHWAYS]
+        .apply(all_yes)
+        .reset_index(name="All_Yes")
+    )
+
+    scores["100%_Pathway_Registration"] = scores["All_Yes"].apply(lambda x: 10 if x else 0)
+    scores.drop(columns="All_Yes", inplace=True)
+
+    scores[CLUB_NUMBER] = scores[CLUB_NUMBER].astype(int)
+
+    return scores

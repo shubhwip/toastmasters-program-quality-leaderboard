@@ -1,7 +1,8 @@
 import streamlit as st
-from utils.helpers import extract_update_date, load_data_club_performance, prepare_pathways_pioneers_data, prepare_leadership_innovators_data, prepare_excellence_champions_data
+from utils.helpers import generate_leaderboard_excel, load_data_club_performance, prepare_pathways_pioneers_data, prepare_leadership_innovators_data, prepare_excellence_champions_data
 import numpy as np
 from io import BytesIO
+from openpyxl import Workbook
 
 # ------------------ HEADER ------------------ #
 st.markdown(
@@ -72,9 +73,9 @@ def get_merged_club_data():
     df_leadership_innovators = prepare_leadership_innovators_data(df_club_performance)
     df_excellence_champions = prepare_excellence_champions_data(df_club_performance)
     df_merged = df_pathways_pioneers.merge(
-        df_leadership_innovators[['Club Name', 'Leadership Innovators']], on='Club Name'
+        df_leadership_innovators[['Club Number', 'Leadership Innovators']], on='Club Number'
     ).merge(
-        df_excellence_champions[['Club Name', 'Excellence Champions']], on='Club Name'
+        df_excellence_champions[['Club Number', 'Excellence Champions']], on='Club Number'
     )
     df_merged['Total Club Points'] = (
         df_merged[['Pathways Pioneers', 'Leadership Innovators', 'Excellence Champions']].sum(axis=1)
@@ -139,6 +140,16 @@ def highlight_top3(row):
 
 styled_df = df_to_display.style.apply(highlight_top3, axis=1)
 st.dataframe(styled_df, use_container_width=True, hide_index=True)
+
+# Add this download button in your Streamlit app (place it where you want the button to appear)
+leaderboard_file = generate_leaderboard_excel(df_merged, group_meta, incentives_tiers)
+
+st.download_button(
+    label="📥 Download Full Leaderboard (Excel)",
+    data=leaderboard_file,
+    file_name="District_91_Leaderboard.xlsx",
+    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+)
 
 # ------------------ TIER DESCRIPTIONS ------------------ #
 st.markdown("---")

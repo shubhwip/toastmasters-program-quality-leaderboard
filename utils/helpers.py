@@ -4,7 +4,11 @@ import re
 from datetime import datetime
 import requests
 from utils.metrics import *
-import io
+import pandas as pd
+from openpyxl.styles import PatternFill
+from io import BytesIO
+from openpyxl.utils.dataframe import dataframe_to_rows
+from openpyxl import Workbook
 
 def extract_update_date(file_url):
     """Extract and format the last update date from filename in content-disposition header."""
@@ -54,8 +58,8 @@ def load_data_club_performance(gsheet_url=None):
     df_latest, update_date = load_club_performance_data(secret_key = "GOOGLE_DRIVE_FILE_ID_CLUB_PERFORMANCE")
     
     base_col = ['District', 'Division', 'Area', 'Club Number', 'Club Name',
-       'Club Status', 'CSP', 'Mem. Base', 'Active Members', 'Net Growth']
-    other_col = ['Club Number', 'Goals Met', 'Level 1s', 'Level 2s', 'Add. Level 2s', 'Level 3s',
+       'Club Status', 'Mem. Base', 'Active Members', 'Net Growth']
+    other_col = ['Club Number', 'CSP', 'Goals Met', 'Level 1s', 'Level 2s', 'Add. Level 2s', 'Level 3s',
        'Level 4s, Path Completions, or DTM Awards',
        'Add. Level 4s, Path Completions, or DTM award', 'New Members',
        'Add. New Members', 'Off. Trained Round 1', 'Off. Trained Round 2',
@@ -132,7 +136,7 @@ def prepare_pathways_pioneers_data(df_club_performance):
     )
 
     # Select columns and format
-    columns = ['Club Name', 'Club Group', 'Active Members', 'Pathways Pioneers',
+    columns = ['Club Name', 'Club Number', 'Club Group', 'Active Members', 'Pathways Pioneers',
                'L1 Points', 'L2 Points', 'L3 Points', 'L4 Points', 'L5 Points', 'DTM Points', 'TC Points',
                'Humorous Contest', 'TableTopics Contest', 'Evaluation Contest', 'International Contest']
     
@@ -192,7 +196,7 @@ def prepare_leadership_innovators_data(df_club_performance):
     )
 
     # Select columns and format
-    columns = ['Club Name', 'Club Group', 'Active Members', 'Leadership Innovators',
+    columns = ['Club Name', 'Club Number', 'Club Group', 'Active Members', 'Leadership Innovators',
                'COT R1 Points', 'COT R2 Points', 'MOT_Q1', 'MOT_Q3', 
                 'Pathways_Completion_Celebration','Mentorship_Programme',
                 'President_Distinguished', 'Smedley_Distinguished',
@@ -229,7 +233,10 @@ def prepare_excellence_champions_data(df_club_performance):
     )
 
     df_excellence_champions['FirstTime_Distinguished'] = 0
-    df_excellence_champions['100%_Pathway_Registration'] = 0
+
+    df_pr = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_MEMBERSHIP_LIST", ["Club Number", "100%_Pathway_Registration"])
+    df_pr = pathway_enrollment_scores(df_pr)
+    df_excellence_champions = df_excellence_champions.merge(df_pr, left_on="Club Number", right_on="Club Number", how="left")
 
     # Replace NaN values with 0
     df_excellence_champions = df_excellence_champions.fillna(0)
@@ -240,8 +247,67 @@ def prepare_excellence_champions_data(df_club_performance):
     )
     
     # Select columns and format
-    columns = ['Club Name', 'Club Group', 'Active Members', 'Excellence Champions', 'Club_Success_Plan', 'FirstTime_Distinguished', 'Early10_Distinguished', 'Quality_Initiatives', '100%_Pathway_Registration', 'Member_Onboarding']
+    columns = ['Club Name', 'Club Number', 'Club Group', 'Active Members', 'Excellence Champions', 'Club_Success_Plan', 'FirstTime_Distinguished', 'Early10_Distinguished', 'Quality_Initiatives', '100%_Pathway_Registration', 'Member_Onboarding']
 
     # Sort and reset index
     df_excellence_champions = df_excellence_champions[df_excellence_champions['Active Members'] >= 8]
     return df_excellence_champions[columns].sort_values(by='Club Name').reset_index(drop=True)
+
+def generate_leaderboard_excel(df_merged: pd.DataFrame, group_meta: dict, incentives_tiers: dict) -> BytesIO:
+    output = BytesIO()
+    wb = Workbook()
+    wb.remove(wb.active)  # Remove default sheet
+
+    for group_key, group_info in group_meta.items():
+        group_name = group_info['Name']
+        df_group = df_merged[df_merged['Club Group'] == group_name].copy()
+
+        for tier_key, tier_info in incentives_tiers.items():
+            tier_name = tier_info['Name']
+            sheet_name = f"{group_name[:15]} - {tier_name[:15]}"
+            ws = wb.create_sheet(title=sheet_name)
+
+            # Avoid filtering out clubs with 0 points, keep all clubs
+            df_sorted = df_group.sort_values(
+                by=[tier_name, 'Total Club Points', 'Club Name'],
+                ascending=[False, False, True],
+                kind="mergesort"
+            ).reset_index(drop=True)
+
+            # Add group rank only for clubs with >0 points
+            df_sorted["Group Rank"] = None
+            active_clubs = df_sorted[tier_name] > 0
+            df_sorted.loc[active_clubs, "Group Rank"] = range(1, active_clubs.sum() + 1)
+
+            # Top 3 logic (used only for highlighting)
+            highlight_mask = [False] * len(df_sorted)
+            df_positive = df_sorted[active_clubs]
+            if len(df_positive) >= 3:
+                third_score = df_positive.iloc[2][tier_name]
+                third_points = df_positive.iloc[2]["Total Club Points"]
+                highlight_mask = (
+                    (df_sorted[tier_name] > third_score) |
+                    ((df_sorted[tier_name] == third_score) &
+                     (df_sorted["Total Club Points"] >= third_points))
+                ).tolist()
+            else:
+                highlight_mask = active_clubs.tolist()
+
+            # Final export columns (no Top 3 column)
+            df_export = df_sorted[['Club Name', 'Club Group', tier_name, 'Total Club Points']].copy()
+            df_export.columns = ['Club Name', 'Club Group', 'Tier Points', 'Total Club Points']
+
+            # Write to Excel
+            for r_idx, row in enumerate(dataframe_to_rows(df_export, index=False, header=True), start=1):
+                for c_idx, value in enumerate(row, start=1):
+                    cell = ws.cell(row=r_idx, column=c_idx, value=value)
+                    # Highlight only active clubs marked for top 3
+                    if r_idx > 1 and highlight_mask[r_idx - 2]:  # row index adjusted
+                        cell.fill = PatternFill(start_color="FFFACD", end_color="FFFACD", fill_type="solid")
+
+    wb.save(output)
+    output.seek(0)
+    return output
+
+
+
