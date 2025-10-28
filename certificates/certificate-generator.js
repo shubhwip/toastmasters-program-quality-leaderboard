@@ -3,6 +3,9 @@
 // make more things configurable and constants
 // create incentivefolders in respective directory
 // create sheet in one directory with certain name constants
+// send submission email with proper links of incentives to finance manager
+// send email directly from this sheet
+// make more things configurable and constants
 
 /**
  * Club Incentive Certificate Generation Script

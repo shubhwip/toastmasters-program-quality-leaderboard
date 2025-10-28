@@ -208,19 +208,18 @@ const EMAIL_HTML_TEMPLATE = `
       <div class="divider"></div>
 
       <h3>📚 Need Step-by-Step Guidance?</h3>
-      <p>Find comprehensive instructions in the <a href="https://d91toastmasters.org.uk/wp-content/uploads/D91-Finance-Guide-2024-25-v1.159.pdf" target="_blank"><strong>2024-25 Finance Guide</strong></a>:</p>
+      <p>Find comprehensive instructions in the <a href="https://d91toastmasters.org.uk/wp-content/uploads/Concur-D91-Finance-Guide-2025-26.pptx.pdf" target="_blank"><strong>2025-26 Finance Guide</strong></a>:</p>
       <ul>
-        <li><strong>Pages 18-20:</strong> Complete process overview (don't miss slide 20!)</li>
-        <li><strong>Pages 21-25:</strong> Concur user setup and registration guide</li>
-        <li><strong>Page 61:</strong> Required Report Name for your claim</li>
-        <li><strong>Pages 57-73:</strong> Detailed step-by-step claim instructions for Concur users</li>
+        <li><strong>Pages 5-26:</strong> Concur user setup and registration guide</li>
+        <li><strong>Page 39:</strong> Required Report Name for your claim</li>
+        <li><strong>Pages 40-53:</strong> Detailed step-by-step claim instructions for Concur users</li>
       </ul>
 
       <h3>✅ Next Steps</h3>
       <p>Please let us know:</p>
       <ul>
         <li>If your nominated individual <strong>already has Concur access</strong>, OR</li>
-        <li>If a <strong>new user needs to be set up</strong> (see Page 25 for setup details)</li>
+        <li>If a <strong>new user needs to be set up</strong> (see Page 6 for setup details)</li>
       </ul>
 
       <p>For any questions or assistance with the claims, payment process or CONCUR, don't hesitate to reach out to our D91 Finance Director Guler Cortis at <a href="mailto:guler.cortis@gmail.com">guler.cortis@gmail.com</a>.</p>
@@ -230,7 +229,7 @@ const EMAIL_HTML_TEMPLATE = `
       <p>We're thrilled to celebrate your success—keep inspiring and leading! 🌟</p>
 
       <div class="signature">
-        <p class="name">{{Incentives Director First Name}}</p>
+        <p>Warmest regards,</p>
         <p class="name">{{Incentives Director Name}}</p>
         <p><a href="mailto:{{Incentives Director Email}}">{{Incentives Director Email}}</a></p>
       </div>
