@@ -45,28 +45,96 @@ def load_club_performance_data(secret_key: str) -> pd.DataFrame:
             update_date = "Not available"
 
         df = df[df["Club Name"].notna()]  # Filter rows with non-empty club names
+        df["Club Number"] = df["Club Number"].astype(int)
         return df, update_date
 
     except Exception as e:
         st.warning(f"Could not load Club Performance data: {e}")
         return pd.DataFrame(), 'January 01, 1900'  # Return empty DataFrame on failure
 
+def get_quarter_delta(df_latest: pd.DataFrame, 
+                      df_last_quarter: pd.DataFrame, 
+                      cols_to_diff: list[str],
+                      merge_on: str = "Club Number") -> pd.DataFrame:
+    """
+    Compute quarter-only data by subtracting last quarter snapshot from the latest YTD data.
+
+    Parameters:
+        df_latest (pd.DataFrame): Latest YTD data (e.g., Q2)
+        df_last_quarter (pd.DataFrame): Snapshot as of end of last quarter (e.g., Q1)
+        cols_to_diff (list[str]): List of metric columns to compute delta on
+        merge_on (str): Column to merge on (default = "Club Number")
+
+    Returns:
+        pd.DataFrame: New dataframe with quarter-only values
+    """
+
+    # Standardize merge key (e.g., strip whitespace, uppercase)
+    df_latest[merge_on] = df_latest[merge_on].astype(str).str.strip().str.upper()
+    df_last_quarter[merge_on] = df_last_quarter[merge_on].astype(str).str.strip().str.upper()
+
+    # Merge both snapshots on Club Number
+    df_merged = df_latest.merge(
+        df_last_quarter,
+        on=merge_on,
+        suffixes=("_latest", "_q1"),
+        how="left"
+    )
+
+    # Subtract old values from latest
+    for col in cols_to_diff:
+        col_latest = f"{col}_latest"
+        col_q1 = f"{col}_q1"
+        df_merged[col] = df_merged.get(col_latest, 0) - df_merged.get(col_q1, 0).fillna(0)
+
+    # Keep only Club Number and computed delta columns
+    return df_merged[[merge_on] + cols_to_diff]
+
 # ------------------ Load and Prepare Data ------------------ #
 def load_data_club_performance(gsheet_url=None):
 
-    df_base, quater_base_date = load_club_performance_data(secret_key = "GOOGLE_DRIVE_FILE_ID_CLUB_PERFORMANCE_BASE")
-    df_latest, update_date = load_club_performance_data(secret_key = "GOOGLE_DRIVE_FILE_ID_CLUB_PERFORMANCE")
-    
-    base_col = ['District', 'Division', 'Area', 'Club Number', 'Club Name',
-       'Club Status', 'Mem. Base', 'Active Members', 'Net Growth']
-    other_col = ['Club Number', 'CSP', 'Goals Met', 'Level 1s', 'Level 2s', 'Add. Level 2s', 'Level 3s',
-       'Level 4s, Path Completions, or DTM Awards',
-       'Add. Level 4s, Path Completions, or DTM award', 'New Members',
-       'Add. New Members', 'Off. Trained Round 1', 'Off. Trained Round 2',
-       'Mem. dues on time Oct', 'Mem. dues on time Apr', 'Off. List On Time',
-       'Club Distinguished Status']
+    cq = st.secrets["Current_Quarter"]
 
-    df = df_base[base_col].merge(df_latest[other_col], on='Club Number', how='left')
+    # Map current to last quarter
+    quarter_map = {
+        "Q1": None,
+        "Q2": "Q1",
+        "Q3": "Q2",
+        "Q4": "Q3"
+    }
+    lq = quarter_map.get(cq)
+
+    # Load common data
+    df_base, quarter_base_date = load_club_performance_data(secret_key="GOOGLE_DRIVE_FILE_ID_CLUB_PERFORMANCE_BASE_" + cq)
+    df_latest, update_date = load_club_performance_data(secret_key="GOOGLE_DRIVE_FILE_ID_CLUB_PERFORMANCE_" + cq)
+
+    # Column groups
+    base_col = ['District', 'Division', 'Area', 'Club Number', 'Club Name',
+                'Club Status', 'Mem. Base', 'Active Members', 'Net Growth']
+
+    other_col = ['Club Number', 'CSP', 'Goals Met', 'Level 1s', 'Level 2s', 'Add. Level 2s', 'Level 3s',
+                'Level 4s, Path Completions, or DTM Awards',
+                'Add. Level 4s, Path Completions, or DTM award', 'New Members',
+                'Add. New Members', 'Off. Trained Round 1', 'Off. Trained Round 2',
+                'Mem. dues on time Oct', 'Mem. dues on time Apr', 'Off. List On Time',
+                'Club Distinguished Status']
+
+    # Compute current quarter-only data
+    if lq is None:
+        # First quarter — use latest as-is
+        df_current_only = df_latest[other_col].copy()
+    else:
+        # Load last quarter data and compute delta
+        df_last_quarter, _ = load_club_performance_data(secret_key="GOOGLE_DRIVE_FILE_ID_CLUB_PERFORMANCE_" + lq)
+        df_current_only = get_quarter_delta(
+            df_latest=df_latest,
+            df_last_quarter=df_last_quarter,
+            cols_to_diff=[x for x in other_col if x not in ["Club Number", "CSP"]],
+            merge_on="Club Number"
+        )
+        df_current_only["Club Number"] = df_current_only["Club Number"].astype(int)
+
+    df = df_base[base_col].merge(df_current_only, on='Club Number', how='left')
 
     new_clubs = df_latest[~df_latest["Club Number"].isin(df_base["Club Number"])]
 

@@ -18,7 +18,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-st.markdown("<h2 style='text-align: center;'>🏆 Quarterly Incentives Leaderboard</h2>", unsafe_allow_html=True)
+st.markdown(f"<h2 style='text-align: center;'>🏆 {st.secrets['Current_Quarter']} Incentives Leaderboard</h2>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center;'>Tracking club excellence across size and progress tiers.</p>", unsafe_allow_html=True)
 
 
