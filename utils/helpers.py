@@ -90,6 +90,27 @@ def get_quarter_delta(df_latest: pd.DataFrame,
     # Keep only Club Number and computed delta columns
     return df_merged[[merge_on] + cols_to_diff]
 
+def get_csp_improvement(df_latest: pd.DataFrame, df_last_quarter: pd.DataFrame) -> pd.DataFrame:
+    """
+    Returns a DataFrame with Club Number and updated CSP value:
+    - 'Y' if current CSP is 'Y' and previous was 'N' or missing.
+    - 'N' otherwise.
+    """
+
+    # Extract and rename columns from last quarter
+    prev_csp = df_last_quarter[['Club Number', 'CSP']].rename(columns={'CSP': 'CSP_Previous'})
+    
+    # Merge current with previous
+    merged = df_latest[['Club Number', 'CSP']].merge(prev_csp, on='Club Number', how='left')
+
+    # Apply logic to determine improvement
+    merged['CSP'] = merged.apply(
+        lambda row: 'Y' if row['CSP'] == 'Y' and row.get('CSP_Previous', 'N') != 'Y' else 'N',
+        axis=1
+    )
+    merged['Club Number'] = merged['Club Number'].astype(int)
+    return merged[['Club Number', 'CSP']]
+
 # ------------------ Load and Prepare Data ------------------ #
 def load_data_club_performance(gsheet_url=None):
 
@@ -136,7 +157,10 @@ def load_data_club_performance(gsheet_url=None):
 
     df = df_base[base_col].merge(df_current_only, on='Club Number', how='left')
 
-    new_clubs = df_latest[~df_latest["Club Number"].isin(df_base["Club Number"])]
+    df_updated_csp = get_csp_improvement(df_latest, df_last_quarter)
+    df = df.merge(df_updated_csp, on='Club Number', how='left')
+
+    new_clubs = df_current_only[~df_current_only["Club Number"].isin(df_base["Club Number"])]
 
     df = pd.concat([df, new_clubs], ignore_index=True)
 
@@ -145,6 +169,7 @@ def load_data_club_performance(gsheet_url=None):
     df_edu_achievements = load_excel_data("GOOGLE_DRIVE_FILE_ID_EDU_ACHIEVEMENTS", ["Club", "Name", "Award", "Date"], sheet_name="Sheet1")
     df_edu_achievements.rename(columns={"Club": "Club Number"}, inplace=True)
     df_tc = load_excel_data("GOOGLE_DRIVE_FILE_ID_TRIPLE_CROWN", ["Club Name", "Member"], sheet_name="300925")
+    df_tc = df[['Club Name', 'Club Number']].merge(df_tc, how = 'inner')
     df = calculate_points(df, df_edu_achievements, df_tc)
     df = assign_grouping(df)
     # df = df[df['Group'] != 'Unknown']
@@ -174,7 +199,7 @@ def load_excel_data(secret_key: str, columns: list[str], sheet_name="Sheet1") ->
         gsheet_url = f"https://drive.google.com/uc?export=download&id={file_id}"
         df = pd.read_excel(gsheet_url, sheet_name=sheet_name, skiprows=1)
     except Exception as e:
-        st.warning(f"Could not load Education Achievements data: {e}")
+        # st.warning(f"Could not load Education Achievements data: {e}")
         df = pd.DataFrame(columns=columns)
     return df
 
