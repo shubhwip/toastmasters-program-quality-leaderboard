@@ -224,22 +224,22 @@ def mot_scores(df: pd.DataFrame) -> pd.DataFrame:
 
     # If input is empty → return empty with expected columns
     if df.empty:
-        return pd.DataFrame(columns=["Club Name", "MOT_Q1", "MOT_Q3"])
+        return pd.DataFrame(columns=["Club Name", "MOT"])
     
     CLUB_NUMBER = "Club Number"
+    COL_DATE = "Date the MOT session was conducted"
 
     df[CLUB_NUMBER] = df[COL_CLUB].str.split('---- ').str[-1].str.strip()
     df[COL_CLUB] = df[COL_CLUB].str.split(' ----').str[0].str.strip()
-    # convert to datetime (dayfirst since it's dd/mm/yyyy)
-    mot_dates = pd.to_datetime(df[COL_DATE], dayfirst=True, errors="coerce").dt.date
 
-    q1_start, q1_end = date(2025, 7, 1), date(2025, 12, 31)
-    q2_start, q2_end = date(2026, 1, 1), date(2026, 6, 30)
+    start_date = datetime.strptime(st.secrets["QUARTER_START_DATE"], "%Y-%m-%d")
+    end_date   = datetime.strptime(st.secrets["QUARTER_END_DATE"], "%Y-%m-%d")
+
+    df = df[df[COL_DATE].apply(lambda x: is_within_time_period(pd.Series([x]), start_date, end_date))]
 
     df_out = pd.DataFrame({
         CLUB_NUMBER: df[CLUB_NUMBER],
-        "MOT_Q1": ((mot_dates >= q1_start) & (mot_dates <= q1_end)).astype(int) * 15,
-        "MOT_Q3": ((mot_dates >= q2_start) & (mot_dates <= q2_end)).astype(int) * 15
+        "MOT": 15
     })
 
     df_out[CLUB_NUMBER] = df_out[CLUB_NUMBER].astype(int)
@@ -428,6 +428,9 @@ def pathway_enrollment_scores(df: pd.DataFrame) -> pd.DataFrame:
     - 10 points if all members in a club are enrolled in Pathways
     """
     
+    if df.empty:
+        return pd.DataFrame(columns=["Club Number", "100%_Pathway_Registration"])
+
     df.columns = df.iloc[0]   # Set second row as header
     df = df[1:].reset_index(drop=True)   # Drop the old header row
 
