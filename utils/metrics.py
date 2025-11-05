@@ -55,51 +55,52 @@ def compute_award_points(df: pd.DataFrame, df_tc: pd.DataFrame) -> pd.DataFrame:
     - Level 5 (50 points): if ANY of these codes appear: 
         EC5, EH5, IP5, LD5, MS5, PM5, SR5, VC5
     - DTM (60 points)
-    - TC  (60 points)
+    - TC  (60 points, computed separately from df_tc)
     - FF  (30 points)
     """
 
-    if df.empty:
-        return pd.DataFrame(columns=[
-            "Club Name", "Level_4_Points", "Level_5_Points",
-            "DTM_Points", "TC_Points", "Early10_Distinguished"
-        ])
-
     CLUB_NUMBER = "Club Number"
-    COL_AWARD = "Award"
 
+    # Case when df is empty: return TC scores only
+    if df.empty:
+        tc_scores = calculate_club_points_only_tc(df_tc)
+        return pd.DataFrame({
+            CLUB_NUMBER: tc_scores[CLUB_NUMBER],
+            "L4 Points": 0,
+            "L5 Points": 0,
+            "DTM Points": 0,
+            "TC Points": tc_scores["TC Points"].astype(int),
+            "Early10_Distinguished": 0
+        })
+
+    COL_AWARD = "Award"
     df.rename(columns={"Name": "Club Name"}, inplace=True)
 
-    # Normalise awards text
+    # Normalise award values
     s = df[COL_AWARD].astype(str).str.upper().str.strip()
 
-    # Row-level flags
     df["has_L4"] = s.str.endswith("4")
     df["has_L5"] = s.str.endswith("5")
     df["has_DTM"] = s.eq("DTM")
-    # df["has_TC"] = compute_has_TC(df)
-    df["has_FF"]  = s.eq("FF")
+    df["has_FF"] = s.eq("FF")
 
-    # Collapse to club level
     club_flags = (
-        df.groupby([CLUB_NUMBER, "Club Name"], dropna=False)[["has_L4","has_L5","has_DTM", "has_FF"]]
-          .any()
-          .reset_index()
+        df.groupby([CLUB_NUMBER, "Club Name"], dropna=False)[["has_L4", "has_L5", "has_DTM", "has_FF"]]
+        .any()
+        .reset_index()
     )
-    
-    club_flags['TC Points'] = calculate_club_points(club_flags, df_tc)
 
-    # Map flags → points
-    out = pd.DataFrame({
+    club_flags["TC Points"] = calculate_club_points(club_flags, df_tc)
+
+    return pd.DataFrame({
         CLUB_NUMBER: club_flags[CLUB_NUMBER],
         "L4 Points": club_flags["has_L4"].astype(int) * 40,
         "L5 Points": club_flags["has_L5"].astype(int) * 50,
         "DTM Points": club_flags["has_DTM"].astype(int) * 60,
-        "TC Points":  club_flags["TC Points"].astype(int),
-        "Early10_Distinguished": club_flags["has_FF"].astype(int)  * 30,
+        "TC Points": club_flags["TC Points"].astype(int),
+        "Early10_Distinguished": club_flags["has_FF"].astype(int) * 30
     })
 
-    return out
 
 
 def calculate_points(df: pd.DataFrame, df_edu: pd.DataFrame, df_tc: pd.DataFrame) -> pd.DataFrame:
@@ -465,15 +466,24 @@ def calculate_club_points(
     ):
     
     POINTS_PER_MEMBER = 60
+
+    COL_DATE = "Month"
+
+    if members_df.empty:
+        unique_members_count = pd.DataFrame(columns=["Club Number", "unique_members"])
+
+    start_date = datetime.strptime(st.secrets["QUARTER_START_DATE"], "%Y-%m-%d")
+    end_date   = datetime.strptime(st.secrets["QUARTER_END_DATE"], "%Y-%m-%d")
+
+    members_df = members_df[members_df[COL_DATE].apply(lambda x: is_within_time_period(pd.Series([x]), start_date, end_date))]
     
-    unique_members_count = members_df.groupby('Club Name')['Member'].nunique().reset_index()
-    unique_members_count.columns = ['club_name', 'unique_members']
-    
-    # Merge base_df with unique member counts
+    unique_members_count = members_df.groupby('Club Number')['Member'].nunique().reset_index()
+    unique_members_count.columns = ['Club Number', 'unique_members']
+
     merged_df = base_df.merge(
         unique_members_count,
-        left_on='Club Name',
-        right_on='club_name',
+        left_on='Club Number',
+        right_on='Club Number',
         how='left'
     )
     
@@ -487,3 +497,25 @@ def calculate_club_points(
     points_list = merged_df['points'].tolist()
     
     return points_list
+
+def calculate_club_points_only_tc(members_df: pd.DataFrame) -> pd.DataFrame:
+    
+    POINTS_PER_MEMBER = 60
+
+    COL_DATE = "Month"
+
+    if members_df.empty:
+        unique_members_count = pd.DataFrame(columns=["Club Number", "TC Points"])
+
+    start_date = datetime.strptime(st.secrets["QUARTER_START_DATE"], "%Y-%m-%d")
+    end_date   = datetime.strptime(st.secrets["QUARTER_END_DATE"], "%Y-%m-%d")
+
+    members_df = members_df[members_df[COL_DATE].apply(lambda x: is_within_time_period(pd.Series([x]), start_date, end_date))]
+    
+    unique_members_count = members_df.groupby('Club Number')['Member'].nunique().reset_index()
+    unique_members_count.columns = ['Club Number', 'unique_members']
+    
+    # Calculate points: unique_members * 60
+    unique_members_count['TC Points'] = unique_members_count['unique_members'] * POINTS_PER_MEMBER
+
+    return unique_members_count[['Club Number', 'TC Points']]
