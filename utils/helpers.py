@@ -52,6 +52,29 @@ def load_club_performance_data(secret_key: str) -> pd.DataFrame:
         st.warning(f"Could not load Club Performance data: {e}")
         return pd.DataFrame(), 'January 01, 1900'  # Return empty DataFrame on failure
 
+def load_incentive_winners(secret_key: str) -> pd.DataFrame:
+    """
+    Loads Incentive winners list from Google Drive using a secret key.
+    
+    Args:
+        secret_key (str): The key to access the file ID from Streamlit secrets.
+
+    Returns:
+        pd.DataFrame
+    """
+    try:
+        file_id = st.secrets[secret_key]
+        gsheet_url = f"https://drive.google.com/uc?export=download&id={file_id}"
+
+        df = pd.read_excel(gsheet_url, header=2)
+
+        return df
+
+    except Exception as e:
+        st.warning(f"Could not Incentive Winners list: {e}")
+        return pd.DataFrame()
+
+
 def get_quarter_delta(df_latest: pd.DataFrame, 
                       df_last_quarter: pd.DataFrame, 
                       cols_to_diff: list[str],
