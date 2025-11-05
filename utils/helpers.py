@@ -251,7 +251,7 @@ def prepare_leadership_innovators_data(df_club_performance):
     df = df_club_performance.copy()
 
     # Load and process MOT data
-    df_mot = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_MOMENTS_OF_TRUTH", ["Select Your Club", "MOT_Q1", "MOT_Q3"])
+    df_mot = load_csv_from_secret("GOOGLE_DRIVE_FILE_ID_MOMENTS_OF_TRUTH", ["Select Your Club", "MOT"])
     df_mot_scores = mot_scores(df_mot)
 
     df_leadership_innovators = df.merge(df_mot_scores, left_on="Club Number", right_on="Club Number", how="left")
@@ -283,7 +283,7 @@ def prepare_leadership_innovators_data(df_club_performance):
 
     # Add tier points
     df_leadership_innovators['Leadership Innovators'] = (
-        df_leadership_innovators[['COT R1 Points', 'COT R2 Points', 'MOT_Q1', 'MOT_Q3', 
+        df_leadership_innovators[['COT R1 Points', 'COT R2 Points', 'MOT', 
                                   'Pathways_Completion_Celebration','Mentorship_Programme',
                                   'President_Distinguished', 'Smedley_Distinguished',
                                   'Distinguished_Club_Partners', 'Successful_Transition_Handover']].sum(axis=1)
@@ -291,7 +291,7 @@ def prepare_leadership_innovators_data(df_club_performance):
 
     # Select columns and format
     columns = ['Club Name', 'Club Number', 'Club Group', 'Active Members', 'Leadership Innovators',
-               'COT R1 Points', 'COT R2 Points', 'MOT_Q1', 'MOT_Q3', 
+               'COT R1 Points', 'COT R2 Points', 'MOT', 
                 'Pathways_Completion_Celebration','Mentorship_Programme',
                 'President_Distinguished', 'Smedley_Distinguished',
                 'Distinguished_Club_Partners', 'Successful_Transition_Handover']
