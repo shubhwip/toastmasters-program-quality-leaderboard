@@ -9,3 +9,5 @@ data/GCC_badge_PGM_1000x1000.png
 data/Incentives Plans.xlsx
 data/~$Incentives Plans.xlsx
 data/District Incentives Plan modified.docx
+# Snyk Security Extension - AI Rules (auto-generated)
+.github/instructions/snyk_rules.instructions.md
