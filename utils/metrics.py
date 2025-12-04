@@ -470,15 +470,8 @@ def calculate_club_points(
     
     POINTS_PER_MEMBER = 60
 
-    COL_DATE = "Month"
-
     if members_df.empty:
         unique_members_count = pd.DataFrame(columns=["Club Number", "unique_members"])
-
-    start_date = datetime.strptime(st.secrets["QUARTER_START_DATE"], "%Y-%m-%d")
-    end_date   = datetime.strptime(st.secrets["QUARTER_END_DATE"], "%Y-%m-%d")
-
-    members_df = members_df[members_df[COL_DATE].apply(lambda x: is_within_time_period(pd.Series([x]), start_date, end_date))]
     
     unique_members_count = members_df.groupby('Club Number')['Member'].nunique().reset_index()
     unique_members_count.columns = ['Club Number', 'unique_members']
@@ -494,7 +487,7 @@ def calculate_club_points(
     merged_df['unique_members'] = merged_df['unique_members'].fillna(0)
     
     # Calculate points: unique_members * 60
-    merged_df['points'] = merged_df['unique_members'] * POINTS_PER_MEMBER
+    merged_df['points'] = merged_df['unique_members'].astype(int) * POINTS_PER_MEMBER
     
     # Convert to integer and return as list
     points_list = merged_df['points'].tolist()
@@ -505,20 +498,13 @@ def calculate_club_points_only_tc(members_df: pd.DataFrame) -> pd.DataFrame:
     
     POINTS_PER_MEMBER = 60
 
-    COL_DATE = "Month"
-
     if members_df.empty:
         unique_members_count = pd.DataFrame(columns=["Club Number", "TC Points"])
-
-    start_date = datetime.strptime(st.secrets["QUARTER_START_DATE"], "%Y-%m-%d")
-    end_date   = datetime.strptime(st.secrets["QUARTER_END_DATE"], "%Y-%m-%d")
-
-    members_df = members_df[members_df[COL_DATE].apply(lambda x: is_within_time_period(pd.Series([x]), start_date, end_date))]
     
     unique_members_count = members_df.groupby('Club Number')['Member'].nunique().reset_index()
     unique_members_count.columns = ['Club Number', 'unique_members']
     
     # Calculate points: unique_members * 60
-    unique_members_count['TC Points'] = unique_members_count['unique_members'] * POINTS_PER_MEMBER
+    unique_members_count['TC Points'] = unique_members_count['unique_members'].astype(int)  * POINTS_PER_MEMBER
 
     return unique_members_count[['Club Number', 'TC Points']]
