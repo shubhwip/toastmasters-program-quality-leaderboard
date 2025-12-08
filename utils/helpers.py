@@ -191,7 +191,7 @@ def load_data_club_performance(gsheet_url=None):
 
     df_edu_achievements = load_excel_data("GOOGLE_DRIVE_FILE_ID_EDU_ACHIEVEMENTS", ["Club", "Name", "Award", "Date"], sheet_name="Sheet1")
     df_edu_achievements.rename(columns={"Club": "Club Number"}, inplace=True)
-    df_tc = load_excel_data("GOOGLE_DRIVE_FILE_ID_TRIPLE_CROWN", ["Club Name", "Member"], sheet_name="300925")
+    df_tc = load_excel_data("GOOGLE_DRIVE_FILE_ID_TRIPLE_CROWN", ["Club Name", "Member"], sheet_name="Sheet1")
     df_tc = df[['Club Name', 'Club Number']].merge(df_tc, how = 'inner')
     df = calculate_points(df, df_edu_achievements, df_tc)
     df = assign_grouping(df)
