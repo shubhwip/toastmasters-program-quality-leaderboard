@@ -8,3 +8,5 @@ faiss-cpu
 langchain-community
 unstructured
 openpyxl
+selenium
+webdriver-manager

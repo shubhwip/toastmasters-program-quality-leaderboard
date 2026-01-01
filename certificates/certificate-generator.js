@@ -1,11 +1,20 @@
-// send submission email with proper links of incentives to finance manager
-// send email directly from this sheet
-// make more things configurable and constants
-// create incentivefolders in respective directory
-// create sheet in one directory with certain name constants
-// send submission email with proper links of incentives to finance manager
-// send email directly from this sheet
-// make more things configurable and constants
+// === CONSTANTS FOR TRACKING SYSTEM ===
+const INCENTIVES_MASTER_FOLDER_ID = '1Pe6hkwVw6Uzcrx0j6_1j9wcLCjUJZ54D'; // Main incentives folder
+const SLIDE_TEMPLATE_ID = '1ferO7SQAf8SK-SfEy2JW4soJuZJAWOhYlET-poDeQuw';
+const OFFICERS_SHEET_ID = '1JkcbAdipwQY4RrtuQU1k0YCXIfBjPfud0qDp7x24rzI';
+const DIV_AREA_LEADER_SHEET_ID = '1xY_Ch7u4LRK3Zs_Vo36QfxjEpZjob90ZskZ4y3hmTLA';
+const OFFICERS_SHEET_NAME = 'Club Officer';
+const FINAL_SHEET_LINK = 'Final Certificates'
+// Add these constants after your existing constants (SLIDE_TEMPLATE_ID, OFFICERS_SHEET_ID, etc.)
+const DISTRICT_LEADERS_SHEET_ID = '1xY_Ch7u4LRK3Zs_Vo36QfxjEpZjob90ZskZ4y3hmTLA'; // Sheet with Name, Div Dir/AD, Division, Area, Email
+const DISTRICT_LEADERS_SHEET_NAME = 'Sheet1'; // Change to actual sheet name
+const ACTIVE_CAMPAIGN_MANAGER_EMAIL = 'shubhrjain7@gmail.com';
+const EMAIL_TEMPLATE_DOC_ID = '1fZSrpM4xpnsUZzBIwhcg7d0I9U362bciqWB4zBtiCuM';
+
+// Add these constants with your other constants at the top
+const VERIFICATION_EMAIL_RECIPIENTS = [
+ 'd91incentives@gmail.com'
+];
 
 /**
  * Club Incentive Certificate Generation Script
@@ -66,6 +75,16 @@ function processSubmission(sheet, rowIdx) {
   // Create new spreadsheet for this submission
   const submissionWorkbook = createSubmissionSpreadsheet(rowIdx, headers, submissionDetails.incentiveType);
   
+  // ✅ NEW: Move submission to appropriate incentive folder with proper naming
+  const awardName = formRow[headers.indexOf('Award Name')];
+  const awardDate = formRow[headers.indexOf('Award Date')];
+  moveSubmissionToIncentiveFolder(
+    submissionWorkbook.spreadsheet, 
+    submissionDetails.incentiveType, 
+    awardName, 
+    awardDate
+  );
+
   // Process each club
   const processedRows = processClubs(submissionWorkbook.sheet, headers, formRow, submissionDetails);
   
@@ -87,6 +106,14 @@ function processSubmission(sheet, rowIdx) {
   if (verificationPassed) {
     //sendCertificateEmails(submissionWorkbook.sheet, processedRows);
     //sendSubmissionNotification(submissionWorkbook.url, submissionDetails.incentiveType, submissionDetails.clubs);
+    // ✅ NEW: Update master tracking sheet
+    const submissionDate = new Date();
+    updateMasterIncentiveSheet(
+      submissionDetails.incentiveType,
+      submissionWorkbook.sheet,
+      submissionWorkbook.url,
+      submissionDate
+    );
   } else {
     console.warn('Skipping success notification email due to verification errors');
   }
@@ -575,7 +602,7 @@ function lookupDistrictLeaderEmails(districtLeadersSheet, division, area, incent
   // Incentives Director Email based on type
   const incentivesDirectorEmail = incentiveType === 'CGD' 
     ? 'club.growth.director@d91toastmasters.org.uk' 
-    : 'seematoastmaster@gmail.com';
+    : 'seema.toastmaster@gmail.com';
   
   // D91 Incentives Email (constant)
   const d91incentivesEmail = 'd91incentives@gmail.com';
@@ -1154,4 +1181,252 @@ function dayWithDateFromDateObject(dateObj) {
   const yyyy = dateObj.getFullYear();
   
   return `${dayStr}, ${dd} ${mmm} ${yyyy}`;
+}
+
+/**
+ * Creates or retrieves the IncentiveType folder inside the main incentives folder
+ * @param {string} incentiveType - Type of incentive (CGD/PQD)
+ * @returns {Folder} Google Drive folder for the incentive type
+ */
+function createIncentiveTypeFolder(incentiveType) {
+  try {
+    const mainFolder = DriveApp.getFolderById(INCENTIVES_MASTER_FOLDER_ID);
+    const folderName = `${incentiveType} Incentives`;
+    
+    // Check if folder already exists
+    const existingFolders = mainFolder.getFoldersByName(folderName);
+    
+    if (existingFolders.hasNext()) {
+      console.log(`Using existing ${incentiveType} folder`);
+      return existingFolders.next();
+    } else {
+      console.log(`Creating new ${incentiveType} folder`);
+      return mainFolder.createFolder(folderName);
+    }
+  } catch (error) {
+    console.error('Error creating incentive type folder:', error);
+    throw error;
+  }
+}
+
+/**
+ * Moves and renames the submission spreadsheet to the appropriate incentive folder
+ * @param {Spreadsheet} submissionSpreadsheet - The submission spreadsheet object
+ * @param {string} incentiveType - Type of incentive (CGD/PQD)
+ * @param {string} awardName - Name of the award
+ * @param {Date} awardDate - Date of the award
+ * @returns {Object} Updated spreadsheet info
+ */
+function moveSubmissionToIncentiveFolder(submissionSpreadsheet, incentiveType, awardName, awardDate) {
+  try {
+    const file = DriveApp.getFileById(submissionSpreadsheet.getId());
+    const targetFolder = createIncentiveTypeFolder(incentiveType);
+    
+    // Format the date
+    const formattedDate = Utilities.formatDate(awardDate, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    
+    // Create new name: incentiveType-AwardName-Date
+    const newName = `${incentiveType}-${awardName}-${formattedDate}`;
+    
+    // Rename the file
+    file.setName(newName);
+    
+    // Move to target folder (and remove from other folders)
+    const currentFolders = file.getParents();
+    while (currentFolders.hasNext()) {
+      currentFolders.next().removeFile(file);
+    }
+    targetFolder.addFile(file);
+    
+    console.log(`Moved and renamed submission to: ${newName}`);
+    
+    return {
+      name: newName,
+      url: submissionSpreadsheet.getUrl(),
+      id: submissionSpreadsheet.getId()
+    };
+  } catch (error) {
+    console.error('Error moving submission to incentive folder:', error);
+    throw error;
+  }
+}
+
+// === MASTER SHEET MANAGEMENT FUNCTIONS ===
+
+/**
+ * Creates or retrieves the master tracking sheet for an incentive type
+ * @param {string} incentiveType - Type of incentive (CGD/PQD)
+ * @returns {Object} Master sheet and spreadsheet objects
+ */
+function createOrGetMasterIncentiveSheet(incentiveType) {
+  try {
+    const mainFolder = DriveApp.getFolderById(INCENTIVES_MASTER_FOLDER_ID);
+    const sheetName = `${incentiveType} Master Tracking`;
+    
+    // Search for existing master sheet
+    const existingFiles = mainFolder.getFilesByName(sheetName);
+    
+    let masterSpreadsheet;
+    if (existingFiles.hasNext()) {
+      console.log(`Using existing master sheet: ${sheetName}`);
+      masterSpreadsheet = SpreadsheetApp.open(existingFiles.next());
+    } else {
+      console.log(`Creating new master sheet: ${sheetName}`);
+      masterSpreadsheet = SpreadsheetApp.create(sheetName);
+      
+      // Move to main folder
+      const file = DriveApp.getFileById(masterSpreadsheet.getId());
+      const currentFolders = file.getParents();
+      while (currentFolders.hasNext()) {
+        currentFolders.next().removeFile(file);
+      }
+      mainFolder.addFile(file);
+      
+      // Initialize headers - Claimed Status first, no email fields
+      const headers = [
+        'Claimed Status',
+        'Submission Date',
+        'Award Name',
+        'Award Date',
+        'Expiry Date',
+        'Club Name',
+        'Award Amount',
+        'Voucher Code',
+        'Division',
+        'Area',
+        'Certificate Link',
+        'Submission Sheet Link'
+      ];
+      
+      const masterSheet = masterSpreadsheet.getActiveSheet();
+      masterSheet.appendRow(headers);
+      styleSubmissionSheet(masterSheet, headers);
+      setupClaimedStatusDropdown(masterSheet, headers);
+      
+    }
+    
+    return {
+      spreadsheet: masterSpreadsheet,
+      sheet: masterSpreadsheet.getActiveSheet()
+    };
+  } catch (error) {
+    console.error('Error creating/getting master sheet:', error);
+    throw error;
+  }
+}
+
+/**
+ * Updates the master tracking sheet with new submission data
+ * @param {string} incentiveType - Type of incentive (CGD/PQD)
+ * @param {Sheet} submissionSheet - The submission sheet with club data
+ * @param {string} submissionSheetUrl - URL of the submission sheet
+ * @param {Date} submissionDate - Date of submission
+ */
+function updateMasterIncentiveSheet(incentiveType, submissionSheet, submissionSheetUrl, submissionDate) {
+  try {
+    console.log(`Updating master sheet for ${incentiveType}...`);
+    
+    const masterInfo = createOrGetMasterIncentiveSheet(incentiveType);
+    const masterSheet = masterInfo.sheet;
+    
+    // Get data from submission sheet
+    const submissionData = submissionSheet.getDataRange().getValues();
+    const submissionHeaders = submissionData[0];
+    const submissionRows = submissionData.slice(1); // Skip header
+    
+    // Get master sheet headers
+    const masterHeaders = masterSheet.getRange(1, 1, 1, masterSheet.getLastColumn()).getValues()[0];
+    
+    // Map column indices
+    const getSubmissionColIdx = (colName) => submissionHeaders.indexOf(colName);
+    const getMasterColIdx = (colName) => masterHeaders.indexOf(colName);
+    
+    // Process each club row from submission
+    submissionRows.forEach(row => {
+      const masterRow = [];
+      
+      // Map data to master sheet structure (completely removing email fields)
+      masterRow[getMasterColIdx('Submission Date')] = submissionDate;
+      masterRow[getMasterColIdx('Award Name')] = row[getSubmissionColIdx('Award Name')];
+      masterRow[getMasterColIdx('Award Date')] = row[getSubmissionColIdx('Award Date')];
+      masterRow[getMasterColIdx('Expiry Date')] = row[getSubmissionColIdx('Expiry Date')];
+      masterRow[getMasterColIdx('Club Name')] = row[getSubmissionColIdx('Club Names')];
+      masterRow[getMasterColIdx('Award Amount')] = row[getSubmissionColIdx('Award Amount')];
+      masterRow[getMasterColIdx('Voucher Code')] = row[getSubmissionColIdx('Voucher Code')];
+      
+      // Get division and area
+      const clubName = row[getSubmissionColIdx('Club Names')];
+      const clubInfo = getClubDivisionAndArea(clubName);
+      masterRow[getMasterColIdx('Division')] = clubInfo.division;
+      masterRow[getMasterColIdx('Area')] = clubInfo.area;
+      
+      masterRow[getMasterColIdx('Certificate Link')] = row[getSubmissionColIdx('Certificate')];
+      masterRow[getMasterColIdx('Claimed Status')] = row[getSubmissionColIdx('Claimed Status')];
+      masterRow[getMasterColIdx('Submission Sheet Link')] = submissionSheetUrl;
+      
+      // Fill empty cells with empty strings
+      for (let i = 0; i < masterRow.length; i++) {
+        if (masterRow[i] === undefined) {
+          masterRow[i] = '';
+        }
+      }
+      
+      // Get or create a sheet for this specific award with date
+      const awardName = row[getSubmissionColIdx('Award Name')];
+      const awardDate = row[getSubmissionColIdx('Award Date')];
+      
+      // Format the award date for sheet name
+      let formattedAwardDate = '';
+      if (awardDate instanceof Date) {
+        formattedAwardDate = Utilities.formatDate(awardDate, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+      } else if (awardDate) {
+        // Handle string dates or other formats
+        formattedAwardDate = awardDate.toString().substring(0, 10);
+      }
+      
+      const awardSheetName = `${awardName} - ${formattedAwardDate}`.substring(0, 100); // Limit sheet name length
+      
+      let awardSheet = null;
+      try {
+        awardSheet = masterInfo.spreadsheet.getSheetByName(awardSheetName);
+      } catch (e) {
+        // Sheet doesn't exist, getSheetByName threw an error
+        awardSheet = null;
+      }
+      
+      if (!awardSheet) {
+        try {
+          // Sheet doesn't exist, create it
+          awardSheet = masterInfo.spreadsheet.insertSheet(awardSheetName);
+          
+          // Add headers to the new sheet
+          awardSheet.appendRow(masterHeaders);
+          styleSubmissionSheet(awardSheet, masterHeaders);
+          setupClaimedStatusDropdown(awardSheet, masterHeaders);
+          
+          console.log(`Created new award sheet: ${awardSheetName}`);
+        } catch (createError) {
+          console.error(`Failed to create sheet ${awardSheetName}:`, createError);
+          // Fall back to using the main master sheet
+          awardSheet = masterSheet;
+          console.log(`Falling back to main master sheet for ${awardSheetName}`);
+        }
+      }
+      
+      // Final safety check
+      if (!awardSheet) {
+        console.error(`No valid sheet available for ${awardSheetName}, skipping this row`);
+        return; // Skip this iteration
+      }
+      
+      // Append data to the award-specific sheet
+      awardSheet.appendRow(masterRow);
+    });
+    
+    console.log(`Master sheet updated with ${submissionRows.length} rows`);
+    
+  } catch (error) {
+    console.error('Error updating master sheet:', error);
+    throw error;
+  }
 }
