@@ -94,6 +94,10 @@ function processSubmission(sheet, rowIdx) {
   // Generate certificates for each processed row
   generateCertificates(submissionWorkbook.sheet, processedRows);
 
+  // Create Sheet2 with officer summary formula
+  createOfficerSummarySheet
+    (submissionWorkbook.spreadsheet, submissionDetails.incentiveType);
+
   // Verify submission data and certificate generation
   const verificationPassed = verifySubmissionData(
     submissionWorkbook.sheet, 
@@ -107,19 +111,120 @@ function processSubmission(sheet, rowIdx) {
     //sendCertificateEmails(submissionWorkbook.sheet, processedRows);
     //sendSubmissionNotification(submissionWorkbook.url, submissionDetails.incentiveType, submissionDetails.clubs);
     // ✅ NEW: Update master tracking sheet
-    const submissionDate = new Date();
-    updateMasterIncentiveSheet(
+  } else {
+    console.warn('Skipping success notification email due to verification errors');
+  }
+
+  const submissionDate = new Date();
+  updateMasterIncentiveSheet(
       submissionDetails.incentiveType,
       submissionWorkbook.sheet,
       submissionWorkbook.url,
       submissionDate
-    );
-  } else {
-    console.warn('Skipping success notification email due to verification errors');
-  }
+  );
   
   console.log(`=== Completed processing submission ${rowIdx} ===`);
 }
+
+function createOfficerSummarySheet(spreadsheet, incentiveType) {
+    try {
+      // Get or create Sheet2
+      let sheet2 = spreadsheet.getSheetByName('Sheet2');
+      if (!sheet2) {
+      sheet2 = spreadsheet.insertSheet('Sheet2');
+      }
+      
+      // Get the data sheet (first sheet with actual data)
+      const dataSheet = spreadsheet.getSheetByName(spreadsheet.getSheets()[0].getName());
+      const dataRange = dataSheet.getDataRange();
+      const dataValues = dataRange.getValues();
+      const headers = dataValues[0];
+      
+      // Create summary headers
+      const summaryHeaders = ['Club Name', 'Email ID', 'Club Officer', 'Link', 'Award Name', 'Award Amount'];
+      sheet2.appendRow(summaryHeaders);
+      
+      // Style the header row
+      const headerRange = sheet2.getRange(1, 1, 1, summaryHeaders.length);
+      headerRange
+      .setBackground('#4285f4')
+      .setFontColor('#ffffff')
+      .setFontWeight('bold')
+      .setFontSize(11)
+      .setVerticalAlignment('middle')
+      .setHorizontalAlignment('center');
+      
+      // Get column indices from data sheet (1-based for formulas)
+      const clubNameCol = headers.indexOf('Club Names') + 1;
+      const awardNameCol = headers.indexOf('Award Name') + 1;
+      const awardAmountCol = headers.indexOf('Award Amount') + 1;
+      const certificateCol = headers.indexOf('Certificate') + 1;
+      
+      const dataSheetName = dataSheet.getName();
+      
+      if (incentiveType === 'CGD') {
+      // Define officer columns for CGD
+      const vpmCol = headers.indexOf('VPM Email Address') + 1;
+      const treasurerCol = headers.indexOf('Treasurer Email Address') + 1;
+      const presidentCol = headers.indexOf('President Email Address') + 1;
+      
+      const vpmLetter = String.fromCharCode(64 + vpmCol);
+      const treasurerLetter = String.fromCharCode(64 + treasurerCol);
+      const presidentLetter = String.fromCharCode(64 + presidentCol);
+      const clubNameLetter = String.fromCharCode(64 + clubNameCol);
+      const awardNameLetter = String.fromCharCode(64 + awardNameCol);
+      const awardAmountLetter = String.fromCharCode(64 + awardAmountCol);
+      const certificateLetter = String.fromCharCode(64 + certificateCol);
+      
+      // Combined formula for CGD
+      const formula = `={"Club Name", "Email ID", "Club Officer", "Link", "Award Name", "Award Amount";
+  ARRAYFORMULA({
+   FILTER({${dataSheetName}!${clubNameLetter}2:${clubNameLetter}, ${dataSheetName}!${vpmLetter}2:${vpmLetter}, IF(LEN(${dataSheetName}!${clubNameLetter}2:${clubNameLetter}), "Club VPM", ), ARRAYFORMULA("https://drive.google.com/uc?export=view&id=" & REGEXEXTRACT(${dataSheetName}!${certificateLetter}2:${certificateLetter}, "/d/([a-zA-Z0-9_-]+)")), ${dataSheetName}!${awardNameLetter}2:${awardNameLetter}, ${dataSheetName}!${awardAmountLetter}2:${awardAmountLetter}}, LEN(${dataSheetName}!${clubNameLetter}2:${clubNameLetter}));
+   FILTER({${dataSheetName}!${clubNameLetter}2:${clubNameLetter}, ${dataSheetName}!${treasurerLetter}2:${treasurerLetter}, IF(LEN(${dataSheetName}!${clubNameLetter}2:${clubNameLetter}), "Club Treasurer", ), ARRAYFORMULA("https://drive.google.com/uc?export=view&id=" & REGEXEXTRACT(${dataSheetName}!${certificateLetter}2:${certificateLetter}, "/d/([a-zA-Z0-9_-]+)")), ${dataSheetName}!${awardNameLetter}2:${awardNameLetter}, ${dataSheetName}!${awardAmountLetter}2:${awardAmountLetter}}, LEN(${dataSheetName}!${clubNameLetter}2:${clubNameLetter}));
+   FILTER({${dataSheetName}!${clubNameLetter}2:${clubNameLetter}, ${dataSheetName}!${presidentLetter}2:${presidentLetter}, IF(LEN(${dataSheetName}!${clubNameLetter}2:${clubNameLetter}), "Club President", ), ARRAYFORMULA("https://drive.google.com/uc?export=view&id=" & REGEXEXTRACT(${dataSheetName}!${certificateLetter}2:${certificateLetter}, "/d/([a-zA-Z0-9_-]+)")), ${dataSheetName}!${awardNameLetter}2:${awardNameLetter}, ${dataSheetName}!${awardAmountLetter}2:${awardAmountLetter}}, LEN(${dataSheetName}!${clubNameLetter}2:${clubNameLetter}))
+  })}`;
+      
+      sheet2.getRange(1, 1).setFormula(formula);
+      
+      } else if (incentiveType === 'PQD') {
+      // Define officer columns for PQD
+      const vpeCol = headers.indexOf('VPE Email Address') + 1;
+      const treasurerCol = headers.indexOf('Treasurer Email Address') + 1;
+      const presidentCol = headers.indexOf('President Email Address') + 1;
+      
+      const vpeLetter = String.fromCharCode(64 + vpeCol);
+      const treasurerLetter = String.fromCharCode(64 + treasurerCol);
+      const presidentLetter = String.fromCharCode(64 + presidentCol);
+      const clubNameLetter = String.fromCharCode(64 + clubNameCol);
+      const awardNameLetter = String.fromCharCode(64 + awardNameCol);
+      const awardAmountLetter = String.fromCharCode(64 + awardAmountCol);
+      const certificateLetter = String.fromCharCode(64 + certificateCol);
+      
+      // Combined formula for PQD
+      const formula = `={"Club Name", "Email ID", "Club Officer", "Link", "Award Name", "Award Amount";
+  ARRAYFORMULA({
+   FILTER({${dataSheetName}!${clubNameLetter}2:${clubNameLetter}, ${dataSheetName}!${vpeLetter}2:${vpeLetter}, IF(LEN(${dataSheetName}!${clubNameLetter}2:${clubNameLetter}), "Club VPE", ), ARRAYFORMULA("https://drive.google.com/uc?export=view&id=" & REGEXEXTRACT(${dataSheetName}!${certificateLetter}2:${certificateLetter}, "/d/([a-zA-Z0-9_-]+)")), ${dataSheetName}!${awardNameLetter}2:${awardNameLetter}, ${dataSheetName}!${awardAmountLetter}2:${awardAmountLetter}}, LEN(${dataSheetName}!${clubNameLetter}2:${clubNameLetter}));
+   FILTER({${dataSheetName}!${clubNameLetter}2:${clubNameLetter}, ${dataSheetName}!${treasurerLetter}2:${treasurerLetter}, IF(LEN(${dataSheetName}!${clubNameLetter}2:${clubNameLetter}), "Club Treasurer", ), ARRAYFORMULA("https://drive.google.com/uc?export=view&id=" & REGEXEXTRACT(${dataSheetName}!${certificateLetter}2:${certificateLetter}, "/d/([a-zA-Z0-9_-]+)")), ${dataSheetName}!${awardNameLetter}2:${awardNameLetter}, ${dataSheetName}!${awardAmountLetter}2:${awardAmountLetter}}, LEN(${dataSheetName}!${clubNameLetter}2:${clubNameLetter}));
+   FILTER({${dataSheetName}!${clubNameLetter}2:${clubNameLetter}, ${dataSheetName}!${presidentLetter}2:${presidentLetter}, IF(LEN(${dataSheetName}!${clubNameLetter}2:${clubNameLetter}), "Club President", ), ARRAYFORMULA("https://drive.google.com/uc?export=view&id=" & REGEXEXTRACT(${dataSheetName}!${certificateLetter}2:${certificateLetter}, "/d/([a-zA-Z0-9_-]+)")), ${dataSheetName}!${awardNameLetter}2:${awardNameLetter}, ${dataSheetName}!${awardAmountLetter}2:${awardAmountLetter}}, LEN(${dataSheetName}!${clubNameLetter}2:${clubNameLetter}))
+  })}`;
+      
+      sheet2.getRange(1, 1).setFormula(formula);
+      }
+      
+      // Auto-resize columns
+      for (let i = 1; i <= summaryHeaders.length; i++) {
+      sheet2.autoResizeColumn(i);
+      }
+      
+      // Set wider column width for Link column (column 4)
+      sheet2.setColumnWidth(4, 400);
+      
+      console.log('Officer summary sheet created successfully with dynamic formulas');
+      
+    } catch (error) {
+      console.error('Error creating officer summary sheet:', error);
+    }
+  }
 
 /**
  * Extracts submission details from form data
