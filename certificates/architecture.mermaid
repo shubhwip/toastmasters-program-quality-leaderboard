@@ -1,0 +1,61 @@
+graph TD
+    A[Form Submission] --> B[onFormSubmit Trigger]
+    B --> C[Extract Submission Details]
+    C --> D[Parse Clubs & Incentive Type]
+    
+    D --> E[Create Submission Spreadsheet]
+    E --> F[Generate Enhanced Headers]
+    F --> G[Apply Styling & Permissions]
+    
+    G --> H[Process Each Club]
+    H --> I[Lookup Officer Emails]
+    I --> J[Create Individual Club Row]
+    J --> K{More Clubs?}
+    K -->|Yes| H
+    K -->|No| L[Generate Certificates]
+    
+    L --> M[For Each Club Row]
+    M --> N[Create Award Folder]
+    N --> O[Copy Slide Template]
+    O --> P[Replace Placeholders]
+    P --> Q[Export as PNG]
+    Q --> R[Save to Drive]
+    R --> S[Write Certificate URL]
+    S --> T[Populate District Leader Emails]
+    T --> U{More Rows?}
+    U -->|Yes| M
+    U -->|No| V[Verification Process]
+    
+    V --> W[Validate Data Completeness]
+    W --> X[Check Certificate Generation]
+    X --> Y{Verification Passed?}
+    
+    Y -->|Yes| Z[Send Success Notifications]
+    Y -->|No| AA[Send Error Alerts]
+    
+    Z --> BB[Process Complete]
+    AA --> BB
+    
+    %% Data Sources
+    CC[(Officers Sheet)] -.-> I
+    DD[(District Leaders Sheet)] -.-> T
+    EE[(Email Template)] -.-> Z
+    FF[(Slide Template)] -.-> O
+    
+    %% Outputs
+    S --> GG[Certificate Images]
+    E --> HH[Submission Spreadsheet]
+    Z --> II[Email Notifications]
+    
+    %% Styling
+    classDef trigger fill:#ff6b6b,stroke:#333,stroke-width:2px,color:#fff
+    classDef process fill:#4ecdc4,stroke:#333,stroke-width:2px,color:#fff
+    classDef decision fill:#ffe66d,stroke:#333,stroke-width:2px,color:#333
+    classDef storage fill:#a8e6cf,stroke:#333,stroke-width:2px,color:#333
+    classDef output fill:#ffd93d,stroke:#333,stroke-width:2px,color:#333
+    
+    class A trigger
+    class B,C,D,E,F,G,H,I,J,L,M,N,O,P,Q,R,S,T,V,W,X,Z,AA process
+    class K,U,Y decision
+    class CC,DD,EE,FF storage
+    class GG,HH,II,BB output

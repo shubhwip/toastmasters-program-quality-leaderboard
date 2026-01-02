@@ -1,7 +1,20 @@
-const SLIDE_TEMPLATE_ID = 'PROVIDE_YOUR_SLIDE_TEMPLATE_ID_HERE';
-const OFFICERS_SHEET_ID = 'PROVIDE_YOUR_OFFICERS_SHEET_ID_HERE'; 
+// === CONSTANTS FOR TRACKING SYSTEM ===
+const INCENTIVES_MASTER_FOLDER_ID = '1Pe6hkwVw6Uzcrx0j6_1j9wcLCjUJZ54D'; // Main incentives folder
+const SLIDE_TEMPLATE_ID = '1ferO7SQAf8SK-SfEy2JW4soJuZJAWOhYlET-poDeQuw';
+const OFFICERS_SHEET_ID = '1JkcbAdipwQY4RrtuQU1k0YCXIfBjPfud0qDp7x24rzI';
+const DIV_AREA_LEADER_SHEET_ID = '1xY_Ch7u4LRK3Zs_Vo36QfxjEpZjob90ZskZ4y3hmTLA';
 const OFFICERS_SHEET_NAME = 'Club Officer';
-const FINAL_SHEET_LINK = 'Final Certificates';
+const FINAL_SHEET_LINK = 'Final Certificates'
+// Add these constants after your existing constants (SLIDE_TEMPLATE_ID, OFFICERS_SHEET_ID, etc.)
+const DISTRICT_LEADERS_SHEET_ID = '1xY_Ch7u4LRK3Zs_Vo36QfxjEpZjob90ZskZ4y3hmTLA'; // Sheet with Name, Div Dir/AD, Division, Area, Email
+const DISTRICT_LEADERS_SHEET_NAME = 'Sheet1'; // Change to actual sheet name
+const ACTIVE_CAMPAIGN_MANAGER_EMAIL = 'shubhrjain7@gmail.com';
+const EMAIL_TEMPLATE_DOC_ID = '1fZSrpM4xpnsUZzBIwhcg7d0I9U362bciqWB4zBtiCuM';
+
+// Add these constants with your other constants at the top
+const VERIFICATION_EMAIL_RECIPIENTS = [
+ 'd91incentives@gmail.com'
+];
 
 /**
  * Club Incentive Certificate Generation Script
@@ -55,9 +68,6 @@ function processSubmission(sheet, rowIdx) {
   const headers = data[0];
   const formRow = data[rowIdx - 1];
   
-  // Ensure required columns exist
-  ensureColumn(sheet, FINAL_SHEET_LINK);
-  
   // Extract submission details
   const submissionDetails = extractSubmissionDetails(headers, formRow);
   console.log(`Processing clubs: ${submissionDetails.clubs.join(', ')}`);
@@ -65,17 +75,156 @@ function processSubmission(sheet, rowIdx) {
   // Create new spreadsheet for this submission
   const submissionWorkbook = createSubmissionSpreadsheet(rowIdx, headers, submissionDetails.incentiveType);
   
+  // ✅ NEW: Move submission to appropriate incentive folder with proper naming
+  const awardName = formRow[headers.indexOf('Award Name')];
+  const awardDate = formRow[headers.indexOf('Award Date')];
+  moveSubmissionToIncentiveFolder(
+    submissionWorkbook.spreadsheet, 
+    submissionDetails.incentiveType, 
+    awardName, 
+    awardDate
+  );
+
   // Process each club
   const processedRows = processClubs(submissionWorkbook.sheet, headers, formRow, submissionDetails);
   
-  // Write submission sheet link back to original form
+  // Write submission sheet link to original form
   writeSubmissionLink(sheet, rowIdx, submissionWorkbook.url);
   
   // Generate certificates for each processed row
   generateCertificates(submissionWorkbook.sheet, processedRows);
+
+  // Create Sheet2 with officer summary formula
+  createOfficerSummarySheet
+    (submissionWorkbook.spreadsheet, submissionDetails.incentiveType);
+
+  // Verify submission data and certificate generation
+  const verificationPassed = verifySubmissionData(
+    submissionWorkbook.sheet, 
+    submissionDetails.clubs.length, 
+    submissionWorkbook.url, 
+    submissionDetails
+  );
+  
+  // Send email notification only if verification passed
+  if (verificationPassed) {
+    //sendCertificateEmails(submissionWorkbook.sheet, processedRows);
+    //sendSubmissionNotification(submissionWorkbook.url, submissionDetails.incentiveType, submissionDetails.clubs);
+    // ✅ NEW: Update master tracking sheet
+  } else {
+    console.warn('Skipping success notification email due to verification errors');
+  }
+
+  const submissionDate = new Date();
+  updateMasterIncentiveSheet(
+      submissionDetails.incentiveType,
+      submissionWorkbook.sheet,
+      submissionWorkbook.url,
+      submissionDate
+  );
   
   console.log(`=== Completed processing submission ${rowIdx} ===`);
 }
+
+function createOfficerSummarySheet(spreadsheet, incentiveType) {
+    try {
+      // Get or create Sheet2
+      let sheet2 = spreadsheet.getSheetByName('Sheet2');
+      if (!sheet2) {
+      sheet2 = spreadsheet.insertSheet('Sheet2');
+      }
+      
+      // Get the data sheet (first sheet with actual data)
+      const dataSheet = spreadsheet.getSheetByName(spreadsheet.getSheets()[0].getName());
+      const dataRange = dataSheet.getDataRange();
+      const dataValues = dataRange.getValues();
+      const headers = dataValues[0];
+      
+      // Create summary headers
+      const summaryHeaders = ['Club Name', 'Email ID', 'Club Officer', 'Link', 'Award Name', 'Award Amount'];
+      sheet2.appendRow(summaryHeaders);
+      
+      // Style the header row
+      const headerRange = sheet2.getRange(1, 1, 1, summaryHeaders.length);
+      headerRange
+      .setBackground('#4285f4')
+      .setFontColor('#ffffff')
+      .setFontWeight('bold')
+      .setFontSize(11)
+      .setVerticalAlignment('middle')
+      .setHorizontalAlignment('center');
+      
+      // Get column indices from data sheet (1-based for formulas)
+      const clubNameCol = headers.indexOf('Club Names') + 1;
+      const awardNameCol = headers.indexOf('Award Name') + 1;
+      const awardAmountCol = headers.indexOf('Award Amount') + 1;
+      const certificateCol = headers.indexOf('Certificate') + 1;
+      
+      const dataSheetName = dataSheet.getName();
+      
+      if (incentiveType === 'CGD') {
+      // Define officer columns for CGD
+      const vpmCol = headers.indexOf('VPM Email Address') + 1;
+      const treasurerCol = headers.indexOf('Treasurer Email Address') + 1;
+      const presidentCol = headers.indexOf('President Email Address') + 1;
+      
+      const vpmLetter = String.fromCharCode(64 + vpmCol);
+      const treasurerLetter = String.fromCharCode(64 + treasurerCol);
+      const presidentLetter = String.fromCharCode(64 + presidentCol);
+      const clubNameLetter = String.fromCharCode(64 + clubNameCol);
+      const awardNameLetter = String.fromCharCode(64 + awardNameCol);
+      const awardAmountLetter = String.fromCharCode(64 + awardAmountCol);
+      const certificateLetter = String.fromCharCode(64 + certificateCol);
+      
+      // Combined formula for CGD
+      const formula = `={"Club Name", "Email ID", "Club Officer", "Link", "Award Name", "Award Amount";
+  ARRAYFORMULA({
+   FILTER({${dataSheetName}!${clubNameLetter}2:${clubNameLetter}, ${dataSheetName}!${vpmLetter}2:${vpmLetter}, IF(LEN(${dataSheetName}!${clubNameLetter}2:${clubNameLetter}), "Club VPM", ), ARRAYFORMULA("https://drive.google.com/uc?export=view&id=" & REGEXEXTRACT(${dataSheetName}!${certificateLetter}2:${certificateLetter}, "/d/([a-zA-Z0-9_-]+)")), ${dataSheetName}!${awardNameLetter}2:${awardNameLetter}, ${dataSheetName}!${awardAmountLetter}2:${awardAmountLetter}}, LEN(${dataSheetName}!${clubNameLetter}2:${clubNameLetter}));
+   FILTER({${dataSheetName}!${clubNameLetter}2:${clubNameLetter}, ${dataSheetName}!${treasurerLetter}2:${treasurerLetter}, IF(LEN(${dataSheetName}!${clubNameLetter}2:${clubNameLetter}), "Club Treasurer", ), ARRAYFORMULA("https://drive.google.com/uc?export=view&id=" & REGEXEXTRACT(${dataSheetName}!${certificateLetter}2:${certificateLetter}, "/d/([a-zA-Z0-9_-]+)")), ${dataSheetName}!${awardNameLetter}2:${awardNameLetter}, ${dataSheetName}!${awardAmountLetter}2:${awardAmountLetter}}, LEN(${dataSheetName}!${clubNameLetter}2:${clubNameLetter}));
+   FILTER({${dataSheetName}!${clubNameLetter}2:${clubNameLetter}, ${dataSheetName}!${presidentLetter}2:${presidentLetter}, IF(LEN(${dataSheetName}!${clubNameLetter}2:${clubNameLetter}), "Club President", ), ARRAYFORMULA("https://drive.google.com/uc?export=view&id=" & REGEXEXTRACT(${dataSheetName}!${certificateLetter}2:${certificateLetter}, "/d/([a-zA-Z0-9_-]+)")), ${dataSheetName}!${awardNameLetter}2:${awardNameLetter}, ${dataSheetName}!${awardAmountLetter}2:${awardAmountLetter}}, LEN(${dataSheetName}!${clubNameLetter}2:${clubNameLetter}))
+  })}`;
+      
+      sheet2.getRange(1, 1).setFormula(formula);
+      
+      } else if (incentiveType === 'PQD') {
+      // Define officer columns for PQD
+      const vpeCol = headers.indexOf('VPE Email Address') + 1;
+      const treasurerCol = headers.indexOf('Treasurer Email Address') + 1;
+      const presidentCol = headers.indexOf('President Email Address') + 1;
+      
+      const vpeLetter = String.fromCharCode(64 + vpeCol);
+      const treasurerLetter = String.fromCharCode(64 + treasurerCol);
+      const presidentLetter = String.fromCharCode(64 + presidentCol);
+      const clubNameLetter = String.fromCharCode(64 + clubNameCol);
+      const awardNameLetter = String.fromCharCode(64 + awardNameCol);
+      const awardAmountLetter = String.fromCharCode(64 + awardAmountCol);
+      const certificateLetter = String.fromCharCode(64 + certificateCol);
+      
+      // Combined formula for PQD
+      const formula = `={"Club Name", "Email ID", "Club Officer", "Link", "Award Name", "Award Amount";
+  ARRAYFORMULA({
+   FILTER({${dataSheetName}!${clubNameLetter}2:${clubNameLetter}, ${dataSheetName}!${vpeLetter}2:${vpeLetter}, IF(LEN(${dataSheetName}!${clubNameLetter}2:${clubNameLetter}), "Club VPE", ), ARRAYFORMULA("https://drive.google.com/uc?export=view&id=" & REGEXEXTRACT(${dataSheetName}!${certificateLetter}2:${certificateLetter}, "/d/([a-zA-Z0-9_-]+)")), ${dataSheetName}!${awardNameLetter}2:${awardNameLetter}, ${dataSheetName}!${awardAmountLetter}2:${awardAmountLetter}}, LEN(${dataSheetName}!${clubNameLetter}2:${clubNameLetter}));
+   FILTER({${dataSheetName}!${clubNameLetter}2:${clubNameLetter}, ${dataSheetName}!${treasurerLetter}2:${treasurerLetter}, IF(LEN(${dataSheetName}!${clubNameLetter}2:${clubNameLetter}), "Club Treasurer", ), ARRAYFORMULA("https://drive.google.com/uc?export=view&id=" & REGEXEXTRACT(${dataSheetName}!${certificateLetter}2:${certificateLetter}, "/d/([a-zA-Z0-9_-]+)")), ${dataSheetName}!${awardNameLetter}2:${awardNameLetter}, ${dataSheetName}!${awardAmountLetter}2:${awardAmountLetter}}, LEN(${dataSheetName}!${clubNameLetter}2:${clubNameLetter}));
+   FILTER({${dataSheetName}!${clubNameLetter}2:${clubNameLetter}, ${dataSheetName}!${presidentLetter}2:${presidentLetter}, IF(LEN(${dataSheetName}!${clubNameLetter}2:${clubNameLetter}), "Club President", ), ARRAYFORMULA("https://drive.google.com/uc?export=view&id=" & REGEXEXTRACT(${dataSheetName}!${certificateLetter}2:${certificateLetter}, "/d/([a-zA-Z0-9_-]+)")), ${dataSheetName}!${awardNameLetter}2:${awardNameLetter}, ${dataSheetName}!${awardAmountLetter}2:${awardAmountLetter}}, LEN(${dataSheetName}!${clubNameLetter}2:${clubNameLetter}))
+  })}`;
+      
+      sheet2.getRange(1, 1).setFormula(formula);
+      }
+      
+      // Auto-resize columns
+      for (let i = 1; i <= summaryHeaders.length; i++) {
+      sheet2.autoResizeColumn(i);
+      }
+      
+      // Set wider column width for Link column (column 4)
+      sheet2.setColumnWidth(4, 400);
+      
+      console.log('Officer summary sheet created successfully with dynamic formulas');
+      
+    } catch (error) {
+      console.error('Error creating officer summary sheet:', error);
+    }
+  }
 
 /**
  * Extracts submission details from form data
@@ -119,6 +268,12 @@ function createSubmissionSpreadsheet(rowIdx, headers, incentiveType) {
   const enhancedHeaders = createEnhancedHeaders(headers, incentiveType);
   submissionSheet.appendRow(enhancedHeaders);
   
+  // Set up Claimed Status column with dropdown validation
+  setupClaimedStatusDropdown(submissionSheet, enhancedHeaders);
+  
+  // Style the spreadsheet to look beautiful
+  styleSubmissionSheet(submissionSheet, enhancedHeaders);
+  
   // Set sharing permissions
   setSpreadsheetPermissions(submissionSpreadsheet.getId());
   
@@ -138,14 +293,21 @@ function createSubmissionSpreadsheet(rowIdx, headers, incentiveType) {
  */
 function createEnhancedHeaders(originalHeaders, incentiveType) {
   const newHeaders = [...originalHeaders]; // Use spread operator for cleaner array copying
-  
+  newHeaders.push('Claimed Status');  
   if (incentiveType === 'CGD') {
     newHeaders.push('VPM Email Address', 'Treasurer Email Address', 'President Email Address');
   } else if (incentiveType === 'PQD') {
     newHeaders.push('VPE Email Address', 'Treasurer Email Address', 'President Email Address');
   }
   
-  newHeaders.push('Certificate Link', 'Claimed Status');
+  newHeaders.push(
+    'Certificate',
+    'Division Director Email',
+    'Area Director Email', 
+    'Finance Director Email',
+    'Incentives Director Email',
+    'D91incentives Email',
+  );
   return newHeaders;
 }
 
@@ -182,9 +344,25 @@ function processClubs(submissionSheet, headers, formRow, submissionDetails) {
     const clubRowData = [...formRow];
     clubRowData[submissionDetails.clubCellIdx] = club;
     
-    // Look up officer emails
-    const officerEmails = lookupOfficerEmails(officersSheet, club, submissionDetails.incentiveType);
-    const finalRow = clubRowData.concat(officerEmails);
+    // Lookup officer emails as a map and build an ordered array for the sheet columns
+    const officerLookup = lookupOfficerEmails(officersSheet, club, submissionDetails.incentiveType);
+    const emailMap = officerLookup.emailMap || {};
+
+    // Choose VPM or VPE based on incentive type
+    const vpmOrVpeEmail = submissionDetails.incentiveType === 'CGD'
+      ? (emailMap['Club VP Membership'] || '')
+      : (emailMap['Club VP Education'] || '');
+
+    const treasurerEmail = emailMap['Club Treasurer'] || '';
+    const presidentEmail = emailMap['Club President'] || '';
+
+    // Add Claimed Status first, then officer emails in the correct order
+    const finalRow = clubRowData.concat([
+      'Unclaimed', // Claimed Status
+      vpmOrVpeEmail, // VPM/VPE Email Address
+      treasurerEmail, // Treasurer Email Address  
+      presidentEmail // President Email Address
+    ]);
     
     // Add to submission sheet
     submissionSheet.appendRow(finalRow);
@@ -272,7 +450,8 @@ function processCertificateRow(sheet, rowIdx, row, headers) {
     
     // Write certificate data back to sheet
     writeCertificateData(sheet, rowIdx, headers, imgUrl);
-    
+    // Populate district leader emails
+    populateDistrictLeaderEmails(sheet, rowIdx, row, headers);
     // Clean up temporary slide
     DriveApp.getFileById(certificateData.slideCopyId).setTrashed(true);
     
@@ -282,6 +461,8 @@ function processCertificateRow(sheet, rowIdx, row, headers) {
     console.error(`Error in processCertificateRow for row ${rowIdx}:`, error);
   }
 }
+
+
 
 /**
  * Validates inputs for certificate processing
@@ -396,19 +577,172 @@ function saveCertificateImage(slideCopyId, clubName, certFolder) {
  * @param {string} imgUrl - URL of the certificate image
  */
 function writeCertificateData(sheet, rowIdx, headers, imgUrl) {
-  // Write certificate link
-  const certColIdx = headers.indexOf('Certificate Link');
+  // Write certificate image link
+  const certColIdx = headers.indexOf('Certificate');
   if (certColIdx !== -1) {
     sheet.getRange(rowIdx, certColIdx + 1).setValue(imgUrl);
-    console.log(`Certificate URL written to column ${certColIdx + 1}`);
+    console.log(`Certificate image URL written to column ${certColIdx + 1}`);
   }
   
-  // Set claimed status
+  // Set claimed status with default value
   const claimedColIdx = headers.indexOf('Claimed Status');
   if (claimedColIdx !== -1) {
     sheet.getRange(rowIdx, claimedColIdx + 1).setValue('Unclaimed');
     console.log(`Claimed status set to 'Unclaimed'`);
   }
+}
+
+/**
+ * Populates district leader email columns
+ * @param {Sheet} sheet - Target sheet
+ * @param {number} rowIdx - Row index
+ * @param {Array} row - Row data
+ * @param {Array} headers - Headers array
+ */
+function populateDistrictLeaderEmails(sheet, rowIdx, row, headers) {
+  try {
+    const clubName = row[headers.indexOf('Club Names')];
+    const incentiveType = row[headers.indexOf('Incentive Type')];
+    
+    // Get club's division and area from officers sheet
+    const clubInfo = getClubDivisionAndArea(clubName);
+    
+    // Get district leaders sheet
+    const districtLeadersSheet = SpreadsheetApp.openById(DISTRICT_LEADERS_SHEET_ID)
+      .getSheetByName(DISTRICT_LEADERS_SHEET_NAME);
+    
+    // Lookup all district leader emails
+    const leaderEmails = lookupDistrictLeaderEmails(
+      districtLeadersSheet, 
+      clubInfo.division, 
+      clubInfo.area, 
+      incentiveType
+    );
+    
+    // Write emails to sheet
+    writeDistrictLeaderEmails(sheet, rowIdx, headers, leaderEmails);
+    
+    console.log(`District leader emails populated for ${clubName}`);
+    
+  } catch (error) {
+    console.error('Error populating district leader emails:', error);
+  }
+}
+
+/**
+ * Gets club's division and area from officers sheet
+ * @param {string} clubName - Name of the club
+ * @returns {Object} Object with division and area
+ */
+function getClubDivisionAndArea(clubName) {
+  const officersSheet = SpreadsheetApp.openById(OFFICERS_SHEET_ID)
+    .getSheetByName(OFFICERS_SHEET_NAME);
+  const data = officersSheet.getDataRange().getValues();
+  const headers = data[0];
+  
+  const clubCol = headers.indexOf('Club Name');
+  const divisionCol = headers.indexOf('Division');
+  const areaCol = headers.indexOf('Area');
+  
+  const clubRow = data.find(row => 
+    row[clubCol] && row[clubCol].toString().trim() === clubName
+  );
+  
+  return {
+    division: clubRow ? clubRow[divisionCol] : '',
+    area: clubRow ? clubRow[areaCol] : ''
+  };
+}
+
+/**
+ * Looks up district leader emails from the district leaders sheet
+ * @param {Sheet} districtLeadersSheet - District leaders sheet
+ * @param {string} division - Club's division
+ * @param {string} area - Club's area
+ * @param {string} incentiveType - Type of incentive (CGD/PQD)
+ * @returns {Object} Object with all leader emails
+ */
+function lookupDistrictLeaderEmails(districtLeadersSheet, division, area, incentiveType) {
+  const data = districtLeadersSheet.getDataRange().getValues();
+  const headers = data[0];
+  
+  const nameCol = headers.indexOf('Name');
+  const roleCol = headers.indexOf('Div Dir/AD');
+  const divisionCol = headers.indexOf('Division');
+  const areaCol = headers.indexOf('Area');
+  const emailCol = headers.indexOf('Email');
+  
+  let divisionDirectorEmail = '';
+  let areaDirectorEmail = '';
+  let financeDirectorEmail = '';
+  
+  // Find Division Director (Div Dir/AD = "Div" AND Area is empty AND Division matches)
+  const divDirector = data.find(row =>
+    row[roleCol] && row[roleCol].toString().trim() === 'Div' &&
+    (!row[areaCol] || row[areaCol].toString().trim() === '') &&
+    row[divisionCol] && row[divisionCol].toString().trim() === division
+  );
+  if (divDirector) {
+    divisionDirectorEmail = divDirector[emailCol];
+  }
+  
+  // Find Area Director (Div Dir/AD = "AD" AND Area is not empty AND Division and Area match)
+  const areaDirector = data.find(row =>
+    row[roleCol] && row[roleCol].toString().trim() === 'AD' &&
+    row[divisionCol] && row[divisionCol].toString().trim() === division &&
+    row[areaCol] && row[areaCol].toString().trim() === area.toString()
+  );
+  if (areaDirector) {
+    areaDirectorEmail = areaDirector[emailCol];
+  }
+  
+  // Find Finance Director (Div Dir/AD = "Finance Dir")
+  const financeDirector = data.find(row =>
+    row[roleCol] && row[roleCol].toString().trim() === 'Finance Dir'
+  );
+  if (financeDirector) {
+    financeDirectorEmail = financeDirector[emailCol];
+  }
+  
+  // Incentives Director Email based on type
+  const incentivesDirectorEmail = incentiveType === 'CGD' 
+    ? 'club.growth.director@d91toastmasters.org.uk' 
+    : 'seema.toastmaster@gmail.com';
+  
+  // D91 Incentives Email (constant)
+  const d91incentivesEmail = 'd91incentives@gmail.com';
+  
+  return {
+    divisionDirectorEmail,
+    areaDirectorEmail,
+    financeDirectorEmail,
+    incentivesDirectorEmail,
+    d91incentivesEmail
+  };
+}
+
+/**
+ * Writes district leader emails to the sheet
+ * @param {Sheet} sheet - Target sheet
+ * @param {number} rowIdx - Row index
+ * @param {Array} headers - Headers array
+ * @param {Object} leaderEmails - Object containing all leader emails
+ */
+function writeDistrictLeaderEmails(sheet, rowIdx, headers, leaderEmails) {
+  const emailMappings = [
+    { header: 'Division Director Email', value: leaderEmails.divisionDirectorEmail },
+    { header: 'Area Director Email', value: leaderEmails.areaDirectorEmail },
+    { header: 'Finance Director Email', value: leaderEmails.financeDirectorEmail },
+    { header: 'Incentives Director Email', value: leaderEmails.incentivesDirectorEmail },
+    { header: 'D91incentives Email', value: leaderEmails.d91incentivesEmail }
+  ];
+  
+  emailMappings.forEach(mapping => {
+    const colIdx = headers.indexOf(mapping.header);
+    if (colIdx !== -1) {
+      sheet.getRange(rowIdx, colIdx + 1).setValue(mapping.value);
+    }
+  });
 }
 
 // === UTILITY FUNCTIONS ===
@@ -422,29 +756,105 @@ function writeCertificateData(sheet, rowIdx, headers, imgUrl) {
  */
 function lookupOfficerEmails(officersSheet, clubName, incentiveType) {
   const officesNeeded = getRequiredOffices(incentiveType);
-  
-  // Get all officer data once
+
+  // Read sheet once
   const data = officersSheet.getDataRange().getValues();
   const headers = data[0];
   const clubCol = headers.indexOf('Club Name');
   const officeCol = headers.indexOf('Office');
   const emailCol = headers.indexOf('Email Address');
-  
-  // Find email for each required office
-  const emails = officesNeeded.map(officeType => {
-    const match = data.find(row =>
-      row[clubCol] && row[clubCol].toString().trim() === clubName &&
-      row[officeCol] && row[officeCol].toString().trim() === officeType
-    );
-    return match ? match[emailCol] : '';
-  });
-  
-  console.log(`Officer emails for ${clubName}:`, emails);
-  return emails;
+
+  // Build map of officeName -> email for this club
+  const emailMap = {};
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const rowClub = row[clubCol] ? row[clubCol].toString().trim() : '';
+    if (rowClub !== clubName) continue;
+
+    const officeName = row[officeCol] ? row[officeCol].toString().trim() : '';
+    const email = row[emailCol] ? row[emailCol].toString().trim() : '';
+    if (officeName) {
+      emailMap[officeName] = email;
+    }
+  }
+
+  // Preserve previous behavior: ordered array of emails for required offices
+  const emails = officesNeeded.map(officeType => emailMap[officeType] || '');
+
+  console.log(`Officer emails array for ${clubName}:`, emails);
+  console.log(`Officer email map for ${clubName}:`, emailMap);
+
+  // Return both the array (for backward compatibility) and the map
+  return {
+    emails,    // array in the same order as getRequiredOffices()
+    emailMap   // lookup by office name -> email
+  };
 }
 
 /**
- * Gets required officer types for incentive type
+ * Sets up dropdown validation for Claimed Status column
+ * @param {Sheet} sheet - Target sheet
+ * @param {Array} headers - Headers array
+ */
+function setupClaimedStatusDropdown(sheet, headers) {
+  const claimedColIdx = headers.indexOf('Claimed Status');
+  if (claimedColIdx !== -1) {
+    const claimedCol = claimedColIdx + 1; // Convert to 1-based
+    
+    // Create dropdown validation rule
+    const rule = SpreadsheetApp.newDataValidation()
+      .requireValueInList(['Unclaimed', 'Claimed'])
+      .setAllowInvalid(false)
+      .build();
+    
+    // Apply to the entire column (starting from row 2 to avoid header)
+    const range = sheet.getRange(2, claimedCol, sheet.getMaxRows() - 1, 1);
+    range.setDataValidation(rule);
+    
+    console.log('Claimed Status dropdown validation set up');
+  }
+}
+
+/**
+ * Styles the submission sheet to look beautiful like Google Forms linked sheets
+ * @param {Sheet} sheet - Target sheet to style
+ * @param {Array} headers - Headers array
+ */
+function styleSubmissionSheet(sheet, headers) {
+  try {
+    const headerRange = sheet.getRange(1, 1, 1, headers.length);
+    
+    // Set header styling similar to Google Forms
+    headerRange
+      .setBackground('#4285f4')  // Google blue color
+      .setFontColor('#ffffff')   // White text
+      .setFontWeight('bold')     // Bold text
+      .setFontSize(11)           // Standard font size
+      .setVerticalAlignment('middle')
+      .setHorizontalAlignment('center');
+    
+    // Auto-resize columns to fit content
+    for (let i = 1; i <= headers.length; i++) {
+      sheet.autoResizeColumn(i);
+    }
+    
+    // Freeze the header row
+    sheet.setFrozenRows(1);
+    
+    // Add alternating row colors for better readability
+    const dataRange = sheet.getRange(2, 1, sheet.getMaxRows() - 1, headers.length);
+    dataRange.applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, true);
+    
+    // Set border around header
+    headerRange.setBorder(true, true, true, true, true, true, '#000000', SpreadsheetApp.BorderStyle.SOLID);
+    
+    console.log('Sheet styling applied successfully');
+    
+  } catch (error) {
+    console.warn('Could not apply sheet styling:', error);
+  }
+}
+/*
  * @param {string} incentiveType - Type of incentive
  * @returns {Array} Array of required office types
  */
@@ -520,6 +930,343 @@ function exportSlideAsPNG(clubName, presentationId) {
   }
 }
 
+
+/**
+ * Sends email notification about the submission
+ * @param {string} submissionSheetUrl - URL of the submission sheet
+ * @param {string} incentiveType - Type of incentive
+ * @param {Array} clubs - Array of club names
+ */
+function sendSubmissionNotification(submissionSheetUrl, incentiveType, clubs) {
+  try {
+    // Get email template
+    const templateDoc = DocumentApp.openById(EMAIL_TEMPLATE_DOC_ID);
+    let emailBody = templateDoc.getBody().getText();
+    
+    // Replace placeholders in template
+    emailBody = emailBody
+      .replace('{{SUBMISSION_SHEET_LINK}}', submissionSheetUrl)
+      .replace('{{INCENTIVE_TYPE}}', incentiveType)
+      .replace('{{CLUBS}}', clubs.join(', '))
+      .replace('{{DATE}}', new Date().toLocaleDateString());
+    
+    // Get finance director email
+    const districtLeadersSheet = SpreadsheetApp.openById(DISTRICT_LEADERS_SHEET_ID)
+      .getSheetByName(DISTRICT_LEADERS_SHEET_NAME);
+    const data = districtLeadersSheet.getDataRange().getValues();
+    const headers = data[0];
+    
+    const roleCol = headers.indexOf('Div Dir/AD');
+    const emailCol = headers.indexOf('Email');
+    
+    const financeDirector = data.find(row =>
+      row[roleCol] && row[roleCol].toString().trim() === 'Finance Dir'
+    );
+    const financeDirectorEmail = financeDirector ? financeDirector[emailCol] : '';
+    
+    // Send email
+    const recipients = [ACTIVE_CAMPAIGN_MANAGER_EMAIL];
+    if (financeDirectorEmail) {
+      recipients.push(financeDirectorEmail);
+    }
+    
+    MailApp.sendEmail({
+      to: recipients.join(','),
+      subject: `New ${incentiveType} Incentive Submission - ${clubs.join(', ')}`,
+      body: emailBody,
+      htmlBody: emailBody.replace(/\n/g, '<br>')
+    });
+    
+    console.log('Email notification sent successfully');
+    
+  } catch (error) {
+    console.error('Error sending email notification:', error);
+  }
+}
+
+
+/**
+ * Verifies submission data completeness and certificate generation
+ * @param {Sheet} submissionSheet - Submission sheet to verify
+ * @param {number} expectedClubCount - Expected number of clubs
+ * @param {string} submissionSheetUrl - URL of submission sheet
+ * @param {Object} submissionDetails - Original submission details
+ * @returns {boolean} True if verification passed
+ */
+function verifySubmissionData(submissionSheet, expectedClubCount, submissionSheetUrl, submissionDetails) {
+  console.log('=== Starting Verification ===');
+  
+  const data = submissionSheet.getDataRange().getValues();
+  const headers = data[0];
+  const dataRows = data.slice(1); // Skip header
+  
+  const errors = [];
+  
+  // Verify number of rows matches number of clubs
+  if (dataRows.length !== expectedClubCount) {
+    errors.push(`Expected ${expectedClubCount} clubs, but found ${dataRows.length} rows in submission sheet`);
+  }
+  
+  // Required columns to check
+  const requiredColumns = [
+    'Incentive Type',
+    'Club Names',
+    'Award Date',
+    'Expiry Date',
+    'Award Name',
+    'Award Amount',
+    'Voucher Code',
+    'President Email Address',
+    'Treasurer Email Address',
+    'Certificate',
+    'Claimed Status',
+    'Division Director Email',
+    'Area Director Email',
+    'Finance Director Email',
+    'Incentives Director Email',
+    'D91incentives Email'
+  ];
+  
+  // Check if all required columns exist
+  const missingColumns = requiredColumns.filter(col => headers.indexOf(col) === -1);
+  if (missingColumns.length > 0) {
+    errors.push(`Missing columns: ${missingColumns.join(', ')}`);
+  }
+  
+  // Check each row for empty required values
+  dataRows.forEach((row, index) => {
+    const rowNum = index + 2; // +2 because index is 0-based and row 1 is header
+    const rowErrors = [];
+    
+    requiredColumns.forEach(colName => {
+      const colIdx = headers.indexOf(colName);
+      if (colIdx !== -1) {
+        const value = row[colIdx];
+        if (value === null || value === undefined || value.toString().trim() === '') {
+          rowErrors.push(colName);
+        }
+      }
+    });
+    
+    if (rowErrors.length > 0) {
+      errors.push(`Row ${rowNum} (${row[headers.indexOf('Club Names')] || 'Unknown Club'}): Missing values in ${rowErrors.join(', ')}`);
+    }
+  });
+  
+  // Count certificates generated
+  const certColIdx = headers.indexOf('Certificate');
+  let certificatesGenerated = 0;
+  if (certColIdx !== -1) {
+    certificatesGenerated = dataRows.filter(row => 
+      row[certColIdx] && row[certColIdx].toString().trim() !== ''
+    ).length;
+  }
+  
+  if (certificatesGenerated !== expectedClubCount) {
+    errors.push(`Expected ${expectedClubCount} certificates, but only ${certificatesGenerated} were generated`);
+  }
+  
+  // If there are errors, send notification email
+  if (errors.length > 0) {
+    console.error('Verification failed with errors:', errors);
+    sendVerificationErrorEmail(errors, submissionSheetUrl, submissionDetails);
+    return false;
+  }
+  
+  console.log('✓ Verification passed successfully');
+  return true;
+}
+
+/**
+ * Sends verification error email to administrators
+ * @param {Array} errors - Array of error messages
+ * @param {string} submissionSheetUrl - URL of submission sheet
+ * @param {Object} submissionDetails - Submission details
+ */
+function sendVerificationErrorEmail(errors, submissionSheetUrl, submissionDetails) {
+  try {
+    const subject = `⚠️ Incentive Submission Verification Failed - ${submissionDetails.incentiveType}`;
+    
+    const emailBody = `
+<h2>Submission Verification Failed</h2>
+
+<p><strong>Incentive Type:</strong> ${submissionDetails.incentiveType}</p>
+<p><strong>Clubs:</strong> ${submissionDetails.clubs.join(', ')}</p>
+<p><strong>Expected Club Count:</strong> ${submissionDetails.clubs.length}</p>
+<p><strong>Submission Time:</strong> ${new Date().toLocaleString()}</p>
+
+<h3>Errors Found:</h3>
+<ul>
+${errors.map(error => `<li>${error}</li>`).join('\n')}
+</ul>
+
+<p><strong>Submission Sheet:</strong> <a href="${submissionSheetUrl}">${submissionSheetUrl}</a></p>
+
+<p>Please review and correct the issues in the submission sheet.</p>
+
+<hr>
+<p><em>This is an automated message from the Club Incentive Certificate Generation System.</em></p>
+    `;
+    
+    MailApp.sendEmail({
+      to: VERIFICATION_EMAIL_RECIPIENTS.join(','),
+      subject: subject,
+      htmlBody: emailBody
+    });
+    
+    console.log('Verification error email sent to:', VERIFICATION_EMAIL_RECIPIENTS.join(', '));
+    
+  } catch (error) {
+    console.error('Error sending verification email:', error);
+  }
+}
+
+
+// /**
+//  * Sends personalized certificate emails to club officers for each row
+//  * @param {Sheet} submissionSheet - Submission sheet
+//  * @param {Array} processedRows - Array of processed row data
+//  */
+// function sendCertificateEmails(submissionSheet, processedRows) {
+//   console.log('=== Starting Certificate Email Distribution ===');
+  
+//   try {
+//     // Get email template
+//     const templateDoc = DocumentApp.openById(EMAIL_TEMPLATE_DOC_ID);
+//     const templateBody = templateDoc.getBody().getText();
+    
+//     const data = submissionSheet.getDataRange().getValues();
+//     const headers = data[0];
+    
+//     // Process each row (club)
+//     processedRows.forEach(rowInfo => {
+//       try {
+//         const rowData = data[rowInfo.rowIndex - 1]; // Convert to 0-based index
+//         sendIndividualCertificateEmail(headers, rowData, templateBody);
+//       } catch (error) {
+//         console.error(`Error sending email for row ${rowInfo.rowIndex}:`, error);
+//       }
+//     });
+    
+//     console.log('Certificate emails sent successfully');
+    
+//   } catch (error) {
+//     console.error('Error in sendCertificateEmails:', error);
+//   }
+// }
+
+/**
+ * Sends individual certificate email for a specific club/row
+ * @param {Array} headers - Column headers
+ * @param {Array} rowData - Row data
+ * @param {string} templateBody - Email template body
+ */
+function sendIndividualCertificateEmail(headers, rowData, templateBody) {
+  // Get column indices
+  const getColumnValue = (columnName) => {
+    const idx = headers.indexOf(columnName);
+    return idx !== -1 ? (rowData[idx] || '') : '';
+  };
+  
+  // Extract recipient emails
+  const presidentEmail = getColumnValue('President Email Address');
+  const treasurerEmail = getColumnValue('Treasurer Email Address');
+  const incentiveType = getColumnValue('Incentive Type');
+  
+  // VPM for CGD, VPE for PQD
+  let vpEmail = '';
+  if (incentiveType === 'CGD') {
+    vpEmail = getColumnValue('VPM Email Address');
+  } else if (incentiveType === 'PQD') {
+    vpEmail = getColumnValue('VPE Email Address');
+  }
+  
+  // CC recipients
+  const divisionDirectorEmail = getColumnValue('Division Director Email');
+  const areaDirectorEmail = getColumnValue('Area Director Email');
+  const financeDirectorEmail = getColumnValue('Finance Director Email');
+  const incentivesDirectorEmail = getColumnValue('Incentives Director Email');
+  
+  // BCC recipient
+  const d91incentivesEmail = getColumnValue('D91incentives Email');
+  
+  // Validate we have at least one TO recipient
+  const toRecipients = [presidentEmail, treasurerEmail, vpEmail].filter(email => email.trim() !== '');
+  if (toRecipients.length === 0) {
+    console.warn(`No valid TO recipients for club: ${getColumnValue('Club Names')}`);
+    return;
+  }
+  
+  // Prepare CC recipients
+  const ccRecipients = [
+    divisionDirectorEmail,
+    areaDirectorEmail,
+    financeDirectorEmail,
+    incentivesDirectorEmail
+  ].filter(email => email.trim() !== '');
+  
+  // Replace all placeholders in email body
+  let emailBody = templateBody;
+  
+  // Replace each column placeholder
+  headers.forEach((header, index) => {
+    let value = rowData[index];
+    
+    // Format dates nicely
+    if (header.includes('Date') && value instanceof Date) {
+      value = dayWithDateFromDateObject(value);
+    } else if (value === null || value === undefined) {
+      value = '';
+    } else {
+      value = value.toString();
+    }
+    
+    // Replace placeholder {{COLUMN_NAME}}
+    const placeholder = `{{${header}}}`;
+    emailBody = emailBody.replace(new RegExp(placeholder, 'g'), value);
+  });
+  
+  // Additional common replacements
+  emailBody = emailBody
+    .replace(/{{CURRENT_DATE}}/g, new Date().toLocaleDateString())
+    .replace(/{{CURRENT_YEAR}}/g, new Date().getFullYear().toString());
+  
+  // Create subject line
+  const clubName = getColumnValue('Club Names');
+  const awardName = getColumnValue('Award Name');
+  const subject = `Congratulations ${clubName} 🎉 Claim Your ${awardName} Incentive – Celebrate Your Success!`
+  
+  // Send email
+  try {
+    const emailOptions = {
+      to: toRecipients.join(','),
+      subject: subject,
+      body: emailBody,
+      htmlBody: emailBody.replace(/\n/g, '<br>'),
+      name: 'District 91 Incentives Team'
+    };
+    
+    if (ccRecipients.length > 0) {
+      emailOptions.cc = ccRecipients.join(',');
+    }
+    
+    if (d91incentivesEmail.trim() !== '') {
+      emailOptions.bcc = d91incentivesEmail;
+    }
+    
+    MailApp.sendEmail(emailOptions);
+    
+    console.log(`✓ Email sent for ${clubName}`);
+    console.log(`  TO: ${toRecipients.join(', ')}`);
+    if (ccRecipients.length > 0) {
+      console.log(`  CC: ${ccRecipients.join(', ')}`);
+    }
+    
+  } catch (error) {
+    console.error(`Error sending email for ${clubName}:`, error);
+  }
+}
+
 /**
  * Formats a Date object as a day and date string
  * @param {Date} dateObj - Date object to format
@@ -531,10 +1278,260 @@ function dayWithDateFromDateObject(dateObj) {
   }
   
   const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  
   const dayStr = days[dateObj.getDay()];
-  const dd = String(dateObj.getDate()).padStart(2, '0');
-  const mm = String(dateObj.getMonth() + 1).padStart(2, '0'); // Months are 0-based
+  const dd = dateObj.getDate();
+  const mmm = months[dateObj.getMonth()]; // Months are 0-based
   const yyyy = dateObj.getFullYear();
   
-  return `${dayStr}, ${dd}-${mm}-${yyyy}`;
+  return `${dayStr}, ${dd} ${mmm} ${yyyy}`;
+}
+
+/**
+ * Creates or retrieves the IncentiveType folder inside the main incentives folder
+ * @param {string} incentiveType - Type of incentive (CGD/PQD)
+ * @returns {Folder} Google Drive folder for the incentive type
+ */
+function createIncentiveTypeFolder(incentiveType) {
+  try {
+    const mainFolder = DriveApp.getFolderById(INCENTIVES_MASTER_FOLDER_ID);
+    const folderName = `${incentiveType} Incentives`;
+    
+    // Check if folder already exists
+    const existingFolders = mainFolder.getFoldersByName(folderName);
+    
+    if (existingFolders.hasNext()) {
+      console.log(`Using existing ${incentiveType} folder`);
+      return existingFolders.next();
+    } else {
+      console.log(`Creating new ${incentiveType} folder`);
+      return mainFolder.createFolder(folderName);
+    }
+  } catch (error) {
+    console.error('Error creating incentive type folder:', error);
+    throw error;
+  }
+}
+
+/**
+ * Moves and renames the submission spreadsheet to the appropriate incentive folder
+ * @param {Spreadsheet} submissionSpreadsheet - The submission spreadsheet object
+ * @param {string} incentiveType - Type of incentive (CGD/PQD)
+ * @param {string} awardName - Name of the award
+ * @param {Date} awardDate - Date of the award
+ * @returns {Object} Updated spreadsheet info
+ */
+function moveSubmissionToIncentiveFolder(submissionSpreadsheet, incentiveType, awardName, awardDate) {
+  try {
+    const file = DriveApp.getFileById(submissionSpreadsheet.getId());
+    const targetFolder = createIncentiveTypeFolder(incentiveType);
+    
+    // Format the date
+    const formattedDate = Utilities.formatDate(awardDate, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+    
+    // Create new name: incentiveType-AwardName-Date
+    const newName = `${incentiveType}-${awardName}-${formattedDate}`;
+    
+    // Rename the file
+    file.setName(newName);
+    
+    // Move to target folder (and remove from other folders)
+    const currentFolders = file.getParents();
+    while (currentFolders.hasNext()) {
+      currentFolders.next().removeFile(file);
+    }
+    targetFolder.addFile(file);
+    
+    console.log(`Moved and renamed submission to: ${newName}`);
+    
+    return {
+      name: newName,
+      url: submissionSpreadsheet.getUrl(),
+      id: submissionSpreadsheet.getId()
+    };
+  } catch (error) {
+    console.error('Error moving submission to incentive folder:', error);
+    throw error;
+  }
+}
+
+// === MASTER SHEET MANAGEMENT FUNCTIONS ===
+
+/**
+ * Creates or retrieves the master tracking sheet for an incentive type
+ * @param {string} incentiveType - Type of incentive (CGD/PQD)
+ * @returns {Object} Master sheet and spreadsheet objects
+ */
+function createOrGetMasterIncentiveSheet(incentiveType) {
+  try {
+    const mainFolder = DriveApp.getFolderById(INCENTIVES_MASTER_FOLDER_ID);
+    const sheetName = `${incentiveType} Master Tracking`;
+    
+    // Search for existing master sheet
+    const existingFiles = mainFolder.getFilesByName(sheetName);
+    
+    let masterSpreadsheet;
+    if (existingFiles.hasNext()) {
+      console.log(`Using existing master sheet: ${sheetName}`);
+      masterSpreadsheet = SpreadsheetApp.open(existingFiles.next());
+    } else {
+      console.log(`Creating new master sheet: ${sheetName}`);
+      masterSpreadsheet = SpreadsheetApp.create(sheetName);
+      
+      // Move to main folder
+      const file = DriveApp.getFileById(masterSpreadsheet.getId());
+      const currentFolders = file.getParents();
+      while (currentFolders.hasNext()) {
+        currentFolders.next().removeFile(file);
+      }
+      mainFolder.addFile(file);
+      
+      // Initialize headers - Claimed Status first, no email fields
+      const headers = [
+        'Claimed Status',
+        'Submission Date',
+        'Award Name',
+        'Award Date',
+        'Expiry Date',
+        'Club Name',
+        'Award Amount',
+        'Voucher Code',
+        'Division',
+        'Area',
+        'Certificate Link',
+        'Submission Sheet Link'
+      ];
+      
+      const masterSheet = masterSpreadsheet.getActiveSheet();
+      masterSheet.appendRow(headers);
+      styleSubmissionSheet(masterSheet, headers);
+      setupClaimedStatusDropdown(masterSheet, headers);
+      
+    }
+    
+    return {
+      spreadsheet: masterSpreadsheet,
+      sheet: masterSpreadsheet.getActiveSheet()
+    };
+  } catch (error) {
+    console.error('Error creating/getting master sheet:', error);
+    throw error;
+  }
+}
+
+/**
+ * Updates the master tracking sheet with new submission data
+ * @param {string} incentiveType - Type of incentive (CGD/PQD)
+ * @param {Sheet} submissionSheet - The submission sheet with club data
+ * @param {string} submissionSheetUrl - URL of the submission sheet
+ * @param {Date} submissionDate - Date of submission
+ */
+function updateMasterIncentiveSheet(incentiveType, submissionSheet, submissionSheetUrl, submissionDate) {
+  try {
+    console.log(`Updating master sheet for ${incentiveType}...`);
+    
+    const masterInfo = createOrGetMasterIncentiveSheet(incentiveType);
+    const masterSheet = masterInfo.sheet;
+    
+    // Get data from submission sheet
+    const submissionData = submissionSheet.getDataRange().getValues();
+    const submissionHeaders = submissionData[0];
+    const submissionRows = submissionData.slice(1); // Skip header
+    
+    // Get master sheet headers
+    const masterHeaders = masterSheet.getRange(1, 1, 1, masterSheet.getLastColumn()).getValues()[0];
+    
+    // Map column indices
+    const getSubmissionColIdx = (colName) => submissionHeaders.indexOf(colName);
+    const getMasterColIdx = (colName) => masterHeaders.indexOf(colName);
+    
+    // Process each club row from submission
+    submissionRows.forEach(row => {
+      const masterRow = [];
+      
+      // Map data to master sheet structure (completely removing email fields)
+      masterRow[getMasterColIdx('Submission Date')] = submissionDate;
+      masterRow[getMasterColIdx('Award Name')] = row[getSubmissionColIdx('Award Name')];
+      masterRow[getMasterColIdx('Award Date')] = row[getSubmissionColIdx('Award Date')];
+      masterRow[getMasterColIdx('Expiry Date')] = row[getSubmissionColIdx('Expiry Date')];
+      masterRow[getMasterColIdx('Club Name')] = row[getSubmissionColIdx('Club Names')];
+      masterRow[getMasterColIdx('Award Amount')] = row[getSubmissionColIdx('Award Amount')];
+      masterRow[getMasterColIdx('Voucher Code')] = row[getSubmissionColIdx('Voucher Code')];
+      
+      // Get division and area
+      const clubName = row[getSubmissionColIdx('Club Names')];
+      const clubInfo = getClubDivisionAndArea(clubName);
+      masterRow[getMasterColIdx('Division')] = clubInfo.division;
+      masterRow[getMasterColIdx('Area')] = clubInfo.area;
+      
+      masterRow[getMasterColIdx('Certificate Link')] = row[getSubmissionColIdx('Certificate')];
+      masterRow[getMasterColIdx('Claimed Status')] = row[getSubmissionColIdx('Claimed Status')];
+      masterRow[getMasterColIdx('Submission Sheet Link')] = submissionSheetUrl;
+      
+      // Fill empty cells with empty strings
+      for (let i = 0; i < masterRow.length; i++) {
+        if (masterRow[i] === undefined) {
+          masterRow[i] = '';
+        }
+      }
+      
+      // Get or create a sheet for this specific award with date
+      const awardName = row[getSubmissionColIdx('Award Name')];
+      const awardDate = row[getSubmissionColIdx('Award Date')];
+      
+      // Format the award date for sheet name
+      let formattedAwardDate = '';
+      if (awardDate instanceof Date) {
+        formattedAwardDate = Utilities.formatDate(awardDate, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+      } else if (awardDate) {
+        // Handle string dates or other formats
+        formattedAwardDate = awardDate.toString().substring(0, 10);
+      }
+      
+      const awardSheetName = `${awardName} - ${formattedAwardDate}`.substring(0, 100); // Limit sheet name length
+      
+      let awardSheet = null;
+      try {
+        awardSheet = masterInfo.spreadsheet.getSheetByName(awardSheetName);
+      } catch (e) {
+        // Sheet doesn't exist, getSheetByName threw an error
+        awardSheet = null;
+      }
+      
+      if (!awardSheet) {
+        try {
+          // Sheet doesn't exist, create it
+          awardSheet = masterInfo.spreadsheet.insertSheet(awardSheetName);
+          
+          // Add headers to the new sheet
+          awardSheet.appendRow(masterHeaders);
+          styleSubmissionSheet(awardSheet, masterHeaders);
+          setupClaimedStatusDropdown(awardSheet, masterHeaders);
+          
+          console.log(`Created new award sheet: ${awardSheetName}`);
+        } catch (createError) {
+          console.error(`Failed to create sheet ${awardSheetName}:`, createError);
+          // Fall back to using the main master sheet
+          awardSheet = masterSheet;
+          console.log(`Falling back to main master sheet for ${awardSheetName}`);
+        }
+      }
+      
+      // Final safety check
+      if (!awardSheet) {
+        console.error(`No valid sheet available for ${awardSheetName}, skipping this row`);
+        return; // Skip this iteration
+      }
+      
+      // Append data to the award-specific sheet
+      awardSheet.appendRow(masterRow);
+    });
+    
+    console.log(`Master sheet updated with ${submissionRows.length} rows`);
+    
+  } catch (error) {
+    console.error('Error updating master sheet:', error);
+    throw error;
+  }
 }
