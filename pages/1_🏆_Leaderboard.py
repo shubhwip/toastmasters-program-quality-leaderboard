@@ -1,8 +1,5 @@
 import streamlit as st
 from utils.helpers import generate_leaderboard_excel, load_data_club_performance, prepare_pathways_pioneers_data, prepare_leadership_innovators_data, prepare_excellence_champions_data, load_incentive_winners
-import numpy as np
-from io import BytesIO
-from openpyxl import Workbook
 
 # ------------------ HEADER ------------------ #
 st.markdown(

@@ -1,7 +1,5 @@
 import streamlit as st
 from utils.helpers import load_data_club_performance, prepare_leadership_innovators_data
-import requests
-from io import BytesIO
 
 # ------------------ HEADER ------------------ #
 st.markdown(
