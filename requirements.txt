@@ -1,10 +1,3 @@
 streamlit
 pandas
-sentence-transformers
-python-docx
-langchain-groq
-langchain
-faiss-cpu
-langchain-community
-unstructured
 openpyxl
