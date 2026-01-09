@@ -1,5 +1,6 @@
 import streamlit as st
 from utils.helpers import generate_leaderboard_excel, load_data_club_performance, prepare_pathways_pioneers_data, prepare_leadership_innovators_data, prepare_excellence_champions_data, load_incentive_winners
+import os 
 
 # ------------------ HEADER ------------------ #
 st.markdown(
@@ -36,7 +37,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-st.markdown(f"<h2 style='text-align: center;'>🏆 {st.secrets['Current_Quarter']} Incentives Leaderboard</h2>", unsafe_allow_html=True)
+st.markdown(f"<h2 style='text-align: center;'>🏆 {os.environ.get('Current_Quarter')} Incentives Leaderboard</h2>", unsafe_allow_html=True)
 st.markdown("<p style='text-align: center;'>Tracking club excellence across size and progress tiers.</p>", unsafe_allow_html=True)
 
 

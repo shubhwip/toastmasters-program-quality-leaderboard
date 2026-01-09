@@ -9,6 +9,7 @@ from openpyxl.styles import PatternFill
 from io import BytesIO
 from openpyxl.utils.dataframe import dataframe_to_rows
 from openpyxl import Workbook
+import os
 
 def extract_update_date(file_url):
     """Extract and format the last update date from filename in content-disposition header."""
@@ -35,7 +36,7 @@ def load_club_performance_data(secret_key: str) -> pd.DataFrame:
         pd.DataFrame: Cleaned DataFrame with valid club names.
     """
     try:
-        file_id = st.secrets[secret_key]
+        file_id = os.environ.get(secret_key)
         gsheet_url = f"https://drive.google.com/uc?export=download&id={file_id}"
 
         df = pd.read_csv(gsheet_url)
@@ -63,7 +64,7 @@ def load_incentive_winners(secret_key: str) -> pd.DataFrame:
         pd.DataFrame
     """
     try:
-        file_id = st.secrets[secret_key]
+        file_id = os.environ.get(secret_key)
         gsheet_url = f"https://drive.google.com/uc?export=download&id={file_id}"
 
         df = pd.read_excel(gsheet_url, header=2)
@@ -137,7 +138,7 @@ def get_csp_improvement(df_latest: pd.DataFrame, df_last_quarter: pd.DataFrame) 
 # ------------------ Load and Prepare Data ------------------ #
 def load_data_club_performance(gsheet_url=None):
 
-    cq = st.secrets["Current_Quarter"]
+    cq = os.environ.get("Current_Quarter")
 
     # Map current to last quarter
     quarter_map = {
@@ -204,7 +205,7 @@ def load_csv_from_secret(secret_key: str, columns: list[str]) -> pd.DataFrame:
     If loading fails, returns an empty DataFrame with the given columns.
     """
     try:
-        file_id = st.secrets[secret_key]
+        file_id = os.environ.get(secret_key)
         gsheet_url = f"https://docs.google.com/spreadsheets/d/{file_id}/export?format=csv"
         df = pd.read_csv(gsheet_url)
     except Exception as e:
@@ -218,7 +219,7 @@ def load_excel_data(secret_key: str, columns: list[str], sheet_name="Sheet1") ->
     If loading fails, returns an empty DataFrame with the given columns.
     """
     try:
-        file_id = st.secrets[secret_key]
+        file_id = os.environ.get(secret_key)
         gsheet_url = f"https://drive.google.com/uc?export=download&id={file_id}"
         df = pd.read_excel(gsheet_url, sheet_name=sheet_name, skiprows=1)
     except Exception as e:
