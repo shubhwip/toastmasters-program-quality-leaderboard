@@ -144,8 +144,8 @@ def calculate_contest_points(df: pd.DataFrame) -> pd.DataFrame:
     """
 
     # ---- 2. load date window from secrets ---- #
-    start_date = datetime.strptime(st.secrets["QUARTER_START_DATE"], "%Y-%m-%d")
-    end_date   = datetime.strptime(st.secrets["QUARTER_END_DATE"], "%Y-%m-%d")
+    start_date = datetime.strptime(os.environ.get("QUARTER_START_DATE"), "%Y-%m-%d")
+    end_date   = datetime.strptime(os.environ.get("QUARTER_END_DATE"), "%Y-%m-%d")
 
     COL_CLUB = "Select Your Club"
     CLUB_NUMBER = "Club Number"
@@ -233,8 +233,8 @@ def mot_scores(df: pd.DataFrame) -> pd.DataFrame:
     df[CLUB_NUMBER] = df[COL_CLUB].str.split('---- ').str[-1].str.strip()
     df[COL_CLUB] = df[COL_CLUB].str.split(' ----').str[0].str.strip()
 
-    start_date = datetime.strptime(st.secrets["QUARTER_START_DATE"], "%Y-%m-%d")
-    end_date   = datetime.strptime(st.secrets["QUARTER_END_DATE"], "%Y-%m-%d")
+    start_date = datetime.strptime(os.environ.get("QUARTER_START_DATE"), "%Y-%m-%d")
+    end_date   = datetime.strptime(os.environ.get("QUARTER_END_DATE"), "%Y-%m-%d")
 
     df = df[df[COL_DATE].apply(lambda x: is_within_time_period(pd.Series([x]), start_date, end_date))]
 
@@ -263,8 +263,8 @@ def pathways_completion_scores(df: pd.DataFrame) -> pd.DataFrame:
     df[CLUB_NUMBER] = df[COL_CLUB].str.split('---- ').str[-1].str.strip()
     df[COL_CLUB] = df[COL_CLUB].str.split(' ----').str[0].str.strip()
 
-    start_date = datetime.strptime(st.secrets["QUARTER_START_DATE"], "%Y-%m-%d")
-    end_date   = datetime.strptime(st.secrets["QUARTER_END_DATE"], "%Y-%m-%d")
+    start_date = datetime.strptime(os.environ.get("QUARTER_START_DATE"), "%Y-%m-%d")
+    end_date   = datetime.strptime(os.environ.get("QUARTER_END_DATE"), "%Y-%m-%d")
 
     df = df[df[COL_DATE].apply(lambda x: is_within_time_period(pd.Series([x]), start_date, end_date))]
 
@@ -293,8 +293,8 @@ def mentorship_programme_scores(df: pd.DataFrame) -> pd.DataFrame:
     df[CLUB_NUMBER] = df[COL_CLUB].str.split('---- ').str[-1].str.strip()
     df[COL_CLUB] = df[COL_CLUB].str.split(' ----').str[0].str.strip()
 
-    start_date = datetime.strptime(st.secrets["QUARTER_START_DATE"], "%Y-%m-%d")
-    end_date   = datetime.strptime(st.secrets["QUARTER_END_DATE"], "%Y-%m-%d")
+    start_date = datetime.strptime(os.environ.get("QUARTER_START_DATE"), "%Y-%m-%d")
+    end_date   = datetime.strptime(os.environ.get("QUARTER_END_DATE"), "%Y-%m-%d")
 
     df = df[df[COL_DATE].apply(lambda x: is_within_time_period(pd.Series([x]), start_date, end_date))]
 
@@ -322,8 +322,8 @@ def distinguished_club_partners_scores(df: pd.DataFrame) -> pd.DataFrame:
     df[CLUB_NUMBER] = df[COL_CLUB].str.split('---- ').str[-1].str.strip()
     df[COL_CLUB] = df[COL_CLUB].str.split(' ----').str[0].str.strip()
 
-    start_date = datetime.strptime(st.secrets["QUARTER_START_DATE"], "%Y-%m-%d")
-    end_date   = datetime.strptime(st.secrets["QUARTER_END_DATE"], "%Y-%m-%d")
+    start_date = datetime.strptime(os.environ.get("QUARTER_START_DATE"), "%Y-%m-%d")
+    end_date   = datetime.strptime(os.environ.get("QUARTER_END_DATE"), "%Y-%m-%d")
 
     df = df[df[COL_DATE].apply(lambda x: is_within_time_period(pd.Series([x]), start_date, end_date))]
 
@@ -351,8 +351,8 @@ def successful_handover_scores(df: pd.DataFrame) -> pd.DataFrame:
     df[CLUB_NUMBER] = df[COL_CLUB].str.split('---- ').str[-1].str.strip()
     df[COL_CLUB] = df[COL_CLUB].str.split(' ----').str[0].str.strip()
 
-    start_date = datetime.strptime(st.secrets["QUARTER_START_DATE"], "%Y-%m-%d")
-    end_date   = datetime.strptime(st.secrets["QUARTER_END_DATE"], "%Y-%m-%d")
+    start_date = datetime.strptime(os.environ.get("QUARTER_START_DATE"), "%Y-%m-%d")
+    end_date   = datetime.strptime(os.environ.get("QUARTER_END_DATE"), "%Y-%m-%d")
 
     df = df[df[COL_DATE].apply(lambda x: is_within_time_period(pd.Series([x]), start_date, end_date))]
 
@@ -380,8 +380,8 @@ def quality_initiatives_scores(df: pd.DataFrame) -> pd.DataFrame:
     df[CLUB_NUMBER] = df[COL_CLUB].str.split('---- ').str[-1].str.strip()
     df[COL_CLUB] = df[COL_CLUB].str.split(' ----').str[0].str.strip()
 
-    start_date = datetime.strptime(st.secrets["QUARTER_START_DATE"], "%Y-%m-%d")
-    end_date   = datetime.strptime(st.secrets["QUARTER_END_DATE"], "%Y-%m-%d")
+    start_date = datetime.strptime(os.environ.get("QUARTER_START_DATE"), "%Y-%m-%d")
+    end_date   = datetime.strptime(os.environ.get("QUARTER_END_DATE"), "%Y-%m-%d")
 
     df = df[df[COL_DATE].apply(lambda x: is_within_time_period(pd.Series([x]), start_date, end_date))]
 
@@ -409,8 +409,8 @@ def member_onboarding_scores(df: pd.DataFrame) -> pd.DataFrame:
     df[CLUB_NUMBER] = df[COL_CLUB].str.split('---- ').str[-1].str.strip()
     df[COL_CLUB] = df[COL_CLUB].str.split(' ----').str[0].str.strip()
 
-    start_date = datetime.strptime(st.secrets["QUARTER_START_DATE"], "%Y-%m-%d")
-    end_date   = datetime.strptime(st.secrets["QUARTER_END_DATE"], "%Y-%m-%d")
+    start_date = datetime.strptime(os.environ.get("QUARTER_START_DATE"), "%Y-%m-%d")
+    end_date   = datetime.strptime(os.environ.get("QUARTER_END_DATE"), "%Y-%m-%d")
 
     df = df[df[COL_DATE].apply(lambda x: is_within_time_period(pd.Series([x]), start_date, end_date))]
 
