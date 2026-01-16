@@ -428,4 +428,57 @@ def generate_leaderboard_excel(df_merged: pd.DataFrame, group_meta: dict, incent
     return output
 
 
+# ------------------ Q1 WINNERS MODAL ------------------ #
+def show_incentive_winners_modal(quarter: str, secret_key: str):
+    st.markdown("<p style='text-align: center; color: #666; margin-bottom: 30px;'>Click on a Club Group to view winners</p>", unsafe_allow_html=True)
+    
+    df_results = load_incentive_winners(secret_key=secret_key)
+
+    if df_results.empty:
+        st.error(f"No {quarter} data available")
+        return
+
+    club_groups = sorted(df_results['Club Group'].unique())
+    icons = ["🏛️", "🏢", "⭐", "💎", "🎯", "🚀", "🌟", "🌐"]
+    cols = st.columns(len(club_groups))
+
+    for idx, group in enumerate(club_groups):
+        group_df = df_results[df_results['Club Group'] == group]
+        num_winners = len(group_df)
+        group_icon = icons[idx % len(icons)]
+
+        with cols[idx]:
+            st.markdown(
+                f"""
+                <div style="text-align: center; padding: 25px 15px; border-radius: 12px; 
+                     background-color: var(--background-color); border: 2px solid var(--secondary-background-color); 
+                     margin-bottom: 15px;">
+                    <div style="font-size: 60px; margin-bottom: 12px;">{group_icon}</div>
+                    <div style="font-size: 18px; font-weight: bold; margin: 8px 0;">{group}</div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+            with st.expander("View Winners", expanded=False):
+                group_df_sorted = group_df.sort_values('Tier Points', ascending=False)
+                tiers = group_df_sorted['Incentive Tiers'].unique()
+
+                for tier in tiers:
+                    tier_winners = group_df_sorted[group_df_sorted['Incentive Tiers'] == tier]
+                    tier_lower = str(tier).lower()
+
+                    if 'gold' in tier_lower or 'platinum' in tier_lower:
+                        tier_emoji = "🥇"
+                    elif 'silver' in tier_lower:
+                        tier_emoji = "🥈"
+                    elif 'bronze' in tier_lower:
+                        tier_emoji = "🥉"
+                    else:
+                        tier_emoji = "🏅"
+
+                    st.markdown(f"**{tier_emoji} {tier}**")
+                    for _, winner in tier_winners.iterrows():
+                        st.markdown(f"{winner['Club Name']}")
+                    st.markdown("")  # Spacer
 

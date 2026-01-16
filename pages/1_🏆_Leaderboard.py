@@ -1,5 +1,5 @@
 import streamlit as st
-from utils.helpers import generate_leaderboard_excel, load_data_club_performance, prepare_pathways_pioneers_data, prepare_leadership_innovators_data, prepare_excellence_champions_data, load_incentive_winners
+from utils.helpers import generate_leaderboard_excel, load_data_club_performance, prepare_pathways_pioneers_data, prepare_leadership_innovators_data, prepare_excellence_champions_data, show_incentive_winners_modal
 import os 
 
 # ------------------ HEADER ------------------ #
@@ -171,79 +171,24 @@ st.download_button(
 )
 
 st.markdown("---")
-# ------------------ Q1 WINNERS MODAL ------------------ #
-@st.dialog("🏅 Q1 Incentive Winners", width="large")
-def show_q1_winners_modal():
-    st.markdown("<p style='text-align: center; color: #666; margin-bottom: 30px;'>Click on a Club Group to view winners</p>", unsafe_allow_html=True)
-    
-    # Load Q1 data
-    df_q1_results = load_incentive_winners(secret_key="D91_Q1_INCENTIVE_WINNERS")
-    
-    if df_q1_results.empty:
-        st.error("No Q1 data available")
-        return
-    
-    club_groups = sorted(df_q1_results['Club Group'].unique())
-    icons = ["🏛️", "🏢", "⭐", "💎", "🎯", "🚀", "🌟", "🌐"]
-    
-    # Create columns for club groups
-    cols = st.columns(len(club_groups))
-    
-    for idx, group in enumerate(club_groups):
-        group_df = df_q1_results[df_q1_results['Club Group'] == group]
-        num_winners = len(group_df)
-        group_icon = icons[idx % len(icons)]
-        
-        with cols[idx]:
-            # Display pillar card with more padding
-            st.markdown(
-                f"""
-                <div style="text-align: center; padding: 25px 15px; border-radius: 12px; 
-                     background-color: var(--background-color); border: 2px solid var(--secondary-background-color); 
-                     margin-bottom: 15px;">
-                    <div style="font-size: 60px; margin-bottom: 12px;">{group_icon}</div>
-                    <div style="font-size: 18px; font-weight: bold; margin: 8px 0;">{group}</div>
-                    <div style="font-size: 13px; opacity: 0.7;">{num_winners} Winners</div>
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
-            
-            # Expander for winners
-            with st.expander("View Winners", expanded=False):
-                # Sort by tier points descending
-                group_df_sorted = group_df.sort_values('Tier Points', ascending=False)
-                
-                # Get unique tiers
-                tiers = group_df_sorted['Incentive Tiers'].unique()
-                
-                for tier in tiers:
-                    tier_winners = group_df_sorted[group_df_sorted['Incentive Tiers'] == tier]
-                    
-                    # Tier emoji
-                    tier_lower = str(tier).lower()
-                    if 'gold' in tier_lower or 'platinum' in tier_lower:
-                        tier_emoji = "🥇"
-                    elif 'silver' in tier_lower:
-                        tier_emoji = "🥈"
-                    elif 'bronze' in tier_lower:
-                        tier_emoji = "🥉"
-                    else:
-                        tier_emoji = "🏅"
-                    
-                    st.markdown(f"**{tier_emoji} {tier}**")
-                    
-                    # Display winners without bullets
-                    for _, winner in tier_winners.iterrows():
-                        st.markdown(f"{winner['Club Name']}")
-                    
-                    st.markdown("")  # Spacing between tiers
 
-# Add Q1 Winners button at the top (THIS IS THE BUTTON!)
-col_left, col_center, col_right = st.columns([1, 2, 1])
-with col_center:
+# Q1 Modal Dialog
+@st.dialog("🏅 Q1 Incentive Winners", width="large")
+def show_q1_modal():
+    show_incentive_winners_modal("Q1", secret_key="D91_Q1_INCENTIVE_WINNERS")
+
+# Q2 Modal Dialog
+@st.dialog("🏅 Q2 Incentive Winners", width="large")
+def show_q2_modal():
+    show_incentive_winners_modal("Q2", secret_key="D91_Q2_INCENTIVE_WINNERS")
+
+col1, col2, col3 = st.columns([1, 2, 1])
+with col2:
     if st.button("🏅 View Q1 Incentive Winners", use_container_width=True, type="primary"):
-        show_q1_winners_modal()
+        show_q1_modal()
+    if st.button("🏅 View Q2 Incentive Winners", use_container_width=True, type="primary"):
+        show_q2_modal()
+
 
 # ------------------ TIER DESCRIPTIONS ------------------ #
 st.markdown("---")
