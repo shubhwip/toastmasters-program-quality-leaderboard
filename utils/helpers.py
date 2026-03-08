@@ -75,13 +75,13 @@ def load_incentive_winners(secret_key: str) -> pd.DataFrame:
         st.warning(f"Could not Incentive Winners list: {e}")
         return pd.DataFrame()
 
-
 def get_quarter_delta(df_latest: pd.DataFrame, 
                       df_last_quarter: pd.DataFrame, 
                       cols_to_diff: list[str],
                       merge_on: str = "Club Number") -> pd.DataFrame:
     """
     Compute quarter-only data by subtracting last quarter snapshot from the latest YTD data.
+    Returns latest value directly for 'Off. Trained Round 1' and 'Off. Trained Round 2'.
 
     Parameters:
         df_latest (pd.DataFrame): Latest YTD data (e.g., Q2)
@@ -93,7 +93,7 @@ def get_quarter_delta(df_latest: pd.DataFrame,
         pd.DataFrame: New dataframe with quarter-only values
     """
 
-    # Standardize merge key (e.g., strip whitespace, uppercase)
+    # Standardize merge key
     df_latest[merge_on] = df_latest[merge_on].astype(str).str.strip().str.upper()
     df_last_quarter[merge_on] = df_last_quarter[merge_on].astype(str).str.strip().str.upper()
 
@@ -105,11 +105,15 @@ def get_quarter_delta(df_latest: pd.DataFrame,
         how="left"
     )
 
-    # Subtract old values from latest
+    # Subtract old values from latest, except for training columns which return latest directly
     for col in cols_to_diff:
         col_latest = f"{col}_latest"
         col_q1 = f"{col}_q1"
-        df_merged[col] = df_merged.get(col_latest, 0) - df_merged.get(col_q1, 0).fillna(0)
+        
+        if col in ['Off. Trained Round 1', 'Off. Trained Round 2']:
+            df_merged[col] = df_merged[col_latest]
+        else:
+            df_merged[col] = df_merged[col_latest].fillna(0) - df_merged[col_q1].fillna(0)
 
     # Keep only Club Number and computed delta columns
     return df_merged[[merge_on] + cols_to_diff]
@@ -139,6 +143,8 @@ def get_csp_improvement(df_latest: pd.DataFrame, df_last_quarter: pd.DataFrame) 
 def load_data_club_performance(gsheet_url=None):
 
     cq = os.environ.get("Current_Quarter")
+    QUARTER_START_DATE = os.environ.get("QUARTER_START_DATE")
+    QUARTER_END_DATE = os.environ.get("QUARTER_END_DATE")
 
     # Map current to last quarter
     quarter_map = {
@@ -192,6 +198,10 @@ def load_data_club_performance(gsheet_url=None):
 
     df_edu_achievements = load_excel_data("GOOGLE_DRIVE_FILE_ID_EDU_ACHIEVEMENTS", ["Club", "Name", "Award", "Date"], sheet_name="Sheet1")
     df_edu_achievements.rename(columns={"Club": "Club Number"}, inplace=True)
+
+    df_edu_achievements['Date'] = pd.to_datetime(df_edu_achievements['Date'])
+    df_edu_achievements = df_edu_achievements[df_edu_achievements['Date'].between(QUARTER_START_DATE, QUARTER_END_DATE)]
+
     df_tc = load_excel_data("GOOGLE_DRIVE_FILE_ID_TRIPLE_CROWN", ["Club Name", "Member"], sheet_name="Sheet1")
     df_tc = df[['Club Name', 'Club Number']].merge(df_tc, how = 'inner')
     df = calculate_points(df, df_edu_achievements, df_tc)

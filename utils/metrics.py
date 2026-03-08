@@ -117,9 +117,14 @@ def calculate_points(df: pd.DataFrame, df_edu: pd.DataFrame, df_tc: pd.DataFrame
     df_edu_points = compute_award_points(df_edu, df_tc)
 
     # COT Training Rounds
-    df['COT R1 Points'] = df['Off. Trained Round 1'].apply(lambda x: 20 if x >= 7 else 0)
-    df['COT R2 Points'] = df['Off. Trained Round 2'].apply(lambda x: 20 if x >= 7 else 0)
-
+    current_quarter = os.environ.get("CURRENT_QUARTER")
+    df['COT R1 Points'] = df['Off. Trained Round 1'].apply(
+        lambda x: 20 if x >= 7 and current_quarter in ["Q1", "Q2"] else 0
+    )
+    df['COT R2 Points'] = df['Off. Trained Round 2'].apply(
+        lambda x: 20 if x >= 7 and current_quarter in ["Q3", "Q4"] else 0
+    )
+    
     df = df.merge(df_edu_points, left_on="Club Number", right_on="Club Number", how="left").fillna(0)
 
     return df
