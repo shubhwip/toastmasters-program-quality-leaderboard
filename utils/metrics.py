@@ -373,7 +373,7 @@ def successful_handover_scores(df: pd.DataFrame) -> pd.DataFrame:
 def quality_initiatives_scores(df: pd.DataFrame) -> pd.DataFrame:
     """
     Returns Club | Quality_Initiatives
-    - 15 points if the club submitted a unique quality initiative (e.g., Speakathon, themed meeting)
+    - 15 points for every entry a club submits a quality initiative (e.g., Speakathon, themed meeting)
     """
     COL_CLUB = "Select Your Club"
     CLUB_NUMBER = "Club Number"
@@ -397,7 +397,7 @@ def quality_initiatives_scores(df: pd.DataFrame) -> pd.DataFrame:
 
     df_out[CLUB_NUMBER] = df_out[CLUB_NUMBER].astype(int)
 
-    return df_out.groupby(CLUB_NUMBER, as_index=False).max()
+    return df_out.groupby(CLUB_NUMBER, as_index=False).sum()
 
 def member_onboarding_scores(df: pd.DataFrame) -> pd.DataFrame:
     """
