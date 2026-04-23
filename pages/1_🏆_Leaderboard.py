@@ -85,7 +85,6 @@ st.markdown(f"##### Top Clubs in {incentives_tier_name} tier in {group_name}")
 # ------------------ PREPARE CLUB DATA ------------------ #
 
 
-@st.cache_data
 def get_merged_club_data():
     df_club_performance, update_date = load_data_club_performance()
     df_pathways_pioneers = prepare_pathways_pioneers_data(df_club_performance)

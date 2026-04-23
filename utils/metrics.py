@@ -86,7 +86,7 @@ def compute_award_points(df: pd.DataFrame, df_tc: pd.DataFrame) -> pd.DataFrame:
     df["has_FF"] = s.eq("FF")
 
     club_flags = (
-        df.groupby([CLUB_NUMBER, "Club Name"], dropna=False)[["has_L4", "has_L5", "has_DTM", "has_FF"]]
+        df.groupby(CLUB_NUMBER, dropna=False)[["has_L4", "has_L5", "has_DTM", "has_FF"]]
         .any()
         .reset_index()
     )
