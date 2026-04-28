@@ -110,7 +110,13 @@ def get_quarter_delta(df_latest: pd.DataFrame,
         col_latest = f"{col}_latest"
         col_q1 = f"{col}_q1"
         
-        if col in ['Off. Trained Round 1', 'Off. Trained Round 2']:
+        non_diff_cols = [
+            'Off. Trained Round 1', 'Off. Trained Round 2',
+            'Mem. dues on time Oct', 'Mem. dues on time Apr',
+            'Off. List On Time', 'Club Distinguished Status'
+        ]
+        
+        if col in non_diff_cols:
             df_merged[col] = df_merged[col_latest]
         else:
             df_merged[col] = df_merged[col_latest].fillna(0) - df_merged[col_q1].fillna(0)
