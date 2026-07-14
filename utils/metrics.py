@@ -437,8 +437,9 @@ def pathway_enrollment_scores(df: pd.DataFrame) -> pd.DataFrame:
     if df.empty:
         return pd.DataFrame(columns=["Club Number", "100%_Pathway_Registration"])
 
-    df.columns = df.iloc[0]   # Set second row as header
-    df = df[1:].reset_index(drop=True)   # Drop the old header row
+    if "Club Number" not in df.columns or "Is Pathways Enrolled" not in df.columns:
+        df.columns = df.iloc[0]   # Set second row as header
+        df = df[1:].reset_index(drop=True)   # Drop the old header row
 
     df.rename(columns={'Club ID': 'Club Number'}, inplace=True)
     CLUB_NUMBER = "Club Number"
@@ -449,7 +450,9 @@ def pathway_enrollment_scores(df: pd.DataFrame) -> pd.DataFrame:
         return pd.DataFrame(columns=[CLUB_NUMBER, "100%_Pathway_Registration"])
 
     # Clean
-    df[CLUB_NUMBER] = df[CLUB_NUMBER].astype(str).str.strip()
+    df[CLUB_NUMBER] = pd.to_numeric(df[CLUB_NUMBER].astype(str).str.strip(), errors='coerce')
+    df = df.dropna(subset=[CLUB_NUMBER])
+    df[CLUB_NUMBER] = df[CLUB_NUMBER].astype(int)
     df[COL_PATHWAYS] = df[COL_PATHWAYS].astype(str).str.strip()
 
     # Group and score
@@ -464,8 +467,6 @@ def pathway_enrollment_scores(df: pd.DataFrame) -> pd.DataFrame:
 
     scores["100%_Pathway_Registration"] = scores["All_Yes"].apply(lambda x: 10 if x else 0)
     scores.drop(columns="All_Yes", inplace=True)
-
-    scores[CLUB_NUMBER] = scores[CLUB_NUMBER].astype(int)
 
     return scores
 
