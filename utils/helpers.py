@@ -317,7 +317,7 @@ def prepare_leadership_innovators_data(df_club_performance):
     # Extract President (P) and Smedley (M) Distinguished status from 'Club Distinguished Status' column
     # P = Presidents Distinguished Club (50 points), M = Smedley Distinguished Club (100 points)
     df_leadership_innovators['President_Distinguished'] = df_leadership_innovators['Club Distinguished Status'].apply(
-        lambda x: 50 if isinstance(x, str) and 'P' in x.upper() else 0
+        lambda x: 50 if isinstance(x, str) and any(ch in x.upper() for ch in ['D', 'S', 'P']) else 0
     )
     df_leadership_innovators['Smedley_Distinguished'] = df_leadership_innovators['Club Distinguished Status'].apply(
         lambda x: 100 if isinstance(x, str) and 'M' in x.upper() else 0
