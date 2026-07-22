@@ -105,20 +105,18 @@ def get_quarter_delta(df_latest: pd.DataFrame,
         how="left"
     )
 
-    # Subtract old values from latest, except for training columns which return latest directly
+    # Subtract old values from latest to get quarter-only values
+    # For 'Club Distinguished Status', use latest (non-numeric, cannot delta)
+    # For all other columns (including training), compute delta to isolate quarter activity
     for col in cols_to_diff:
         col_latest = f"{col}_latest"
         col_q1 = f"{col}_q1"
         
-        non_diff_cols = [
-            'Off. Trained Round 1', 'Off. Trained Round 2',
-            'Mem. dues on time Oct', 'Mem. dues on time Apr',
-            'Off. List On Time', 'Club Distinguished Status'
-        ]
-        
-        if col in non_diff_cols:
+        if col == 'Club Distinguished Status':
+            # Non-numeric column - use latest value directly
             df_merged[col] = df_merged[col_latest]
         else:
+            # All other columns: compute quarter delta
             df_merged[col] = df_merged[col_latest].fillna(0) - df_merged[col_q1].fillna(0)
 
     # Keep only Club Number and computed delta columns
@@ -316,8 +314,14 @@ def prepare_leadership_innovators_data(df_club_performance):
     df_sth_scores = successful_handover_scores(df_sth)
     df_leadership_innovators = df_leadership_innovators.merge(df_sth_scores, left_on="Club Number", right_on="Club Number", how="left")
 
-    df_leadership_innovators['President_Distinguished'] = 0
-    df_leadership_innovators['Smedley_Distinguished'] = 0
+    # Extract President (P) and Smedley (M) Distinguished status from 'Club Distinguished Status' column
+    # P = Presidents Distinguished Club (50 points), M = Smedley Distinguished Club (100 points)
+    df_leadership_innovators['President_Distinguished'] = df_leadership_innovators['Club Distinguished Status'].apply(
+        lambda x: 50 if isinstance(x, str) and 'P' in x.upper() else 0
+    )
+    df_leadership_innovators['Smedley_Distinguished'] = df_leadership_innovators['Club Distinguished Status'].apply(
+        lambda x: 100 if isinstance(x, str) and 'M' in x.upper() else 0
+    )
 
     df_leadership_innovators = df_leadership_innovators.fillna(0)
 
